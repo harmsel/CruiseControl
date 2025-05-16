@@ -1,7 +1,10 @@
-const int potPin = A0;   // Potentiometer ingang
-const int ledPin = 11;   // LED op pin 13
+const int potPin = A0;  // Potentiometer ingang
+const int pulsPin = 11;
+const int ledPin = 13;
+int pulsLengte = 10;
 
 void setup() {
+  pinMode(pulsPin, OUTPUT);
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
 }
@@ -10,17 +13,21 @@ void loop() {
   // Lees de waarde van de potentiometer (0 - 1023)
   int sensorValue = analogRead(potPin);
 
-  float pulslaag = map(sensorValue, 0, 1023, 300,10);
+  float pulslaag = map(sensorValue, 0, 1023, 200, 2);
 
-  // Puls: 20 ms hoog
-  digitalWrite(ledPin, HIGH);
-  delay(10);  // vaste duur van de puls
+  // Puls:  hoog
+  digitalWrite(pulsPin, HIGH);
+  pinMode(ledPin, HIGH);
+  delay(pulsLengte);  // vaste duur van de puls
 
   // Laag houden tot volgende puls
-  digitalWrite(ledPin, LOW);
+  digitalWrite(pulsPin, LOW);
+  pinMode(ledPin, LOW);
   delay(pulslaag);
 
   // Debug info (optioneel)
-  Serial.print("Sensor: "); Serial.print(sensorValue);
-  Serial.print("  pulstijd "); Serial.println(pulslaag);
+  Serial.print("Potmeter: ");
+  Serial.print(sensorValue);
+  Serial.print(".  .. aantal pulsen per seconde");
+  Serial.println(1000 / (pulslaag + pulsLengte));
 }

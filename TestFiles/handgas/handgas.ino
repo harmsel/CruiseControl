@@ -9,8 +9,7 @@ const int ledPin = 11;
 const int servoPin = 2;
 
 Servo myservo;
-
-int servoHoek = 20;
+int servoHoek = 12;
 
 const unsigned long stapInterval = 500;  // 2 per seconde = 500 ms
 
@@ -24,14 +23,12 @@ void setup() {
 
   Serial.begin(9600);
   myservo.attach(servoPin);
-  myservo.write(servoHoek);  // beginpositie
-   Serial.print(" +++++++ RESET +++++ ");
 }
 
 void loop() {
   // Lees knopstatussen (actief laag)
   bool plusIngedrukt = digitalRead(plusKnop) == LOW;
-  bool minIngedrukt  = digitalRead(minKnop)  == LOW;
+  bool minIngedrukt = digitalRead(minKnop) == LOW;
   unsigned long nu = millis();
 
   // Plusknop ingedrukt → verhogen
@@ -40,7 +37,6 @@ void loop() {
     servoHoek = constrain(servoHoek, 0, 180);  // evt. grens
     Serial.print("servoHoek verhoogd: ");
     Serial.println(servoHoek);
-    myservo.write(servoHoek);
     ledFeedback();
     vorigePlusTijd = nu;
   }
@@ -51,10 +47,12 @@ void loop() {
     servoHoek = constrain(servoHoek, 0, 66);
     Serial.print("servoHoek --: ");
     Serial.println(servoHoek);
-    myservo.write(servoHoek);
+
     ledFeedback();
     vorigeMinTijd = nu;
   }
+  myservo.write(servoHoek);
+  delay(10);
 }
 
 void ledFeedback() {

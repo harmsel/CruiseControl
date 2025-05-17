@@ -22,5 +22,5 @@ Als je de rem of koppeling indruk zal zal de waarde op de betreffende pin van GN
 Aansluitschema
 ![](images/Aansluitschema.jpg)
 
-### Arduino Pro Micro
-
+Gebruikte stekker
+![](images/stekker.jpg)

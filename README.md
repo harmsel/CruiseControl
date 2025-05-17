@@ -1,5 +1,5 @@
 # Cruise controll
-Hoe maak je op basis van standaard onderdelen een cruise controll die met behulp van een servo de gasveer aantrekt en loslaat aan de hand van de gemeten snelheid.
+Maak op basis van standaard onderdelen een cruise controll
 
 ### Benodigdheden
 
@@ -22,5 +22,5 @@ Als je de rem of koppeling indruk zal zal de waarde op de betreffende pin van GN
 Aansluitschema
 ![](images/Aansluitschema.jpg)
 
-### Arduino Pro Micro
-
+Gebruikte stekker
+![](images/stekker.jpg)

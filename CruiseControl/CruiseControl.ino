@@ -30,8 +30,8 @@ bool ccAan = false;
 bool ccActief = false;
 unsigned long ingedruktSinds = 0;
 
-bool vorigeKnopStatus = HIGH; //voor debounce
-unsigned long laatsteDebounceTijd = 0;// debounce plusknop
+bool vorigeKnopStatus = HIGH;           //voor debounce
+unsigned long laatsteDebounceTijd = 0;  // debounce plusknop
 
 
 // --- LED
@@ -105,7 +105,7 @@ void servoAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= 30) {// nummer is de sneheid van het draaien van de servo
+  if (huidigeTijd - vorigeAanpassingTijd >= 30) {  // nummer is de sneheid van het draaien van de servo
     vorigeAanpassingTijd = huidigeTijd;
 
     if (pulseDoel > gemetenPuls) {

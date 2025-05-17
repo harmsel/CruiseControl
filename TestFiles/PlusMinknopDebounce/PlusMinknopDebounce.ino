@@ -2,27 +2,46 @@ const int plusKnop = 10;
 const int minKnop = 9;
 const int ledPin = 11;
 
-int plusState, lastPlusState = HIGH;
-int minState, lastMinState = HIGH;
+int pulseDoel = 20;
+
+// Debounce-instellingen
+const unsigned long debounceDelay = 50;
+
+int lastPlusState = HIGH;
+int lastMinState = HIGH;
+
+int plusState;
+int minState;
 
 unsigned long lastDebounceTimePlus = 0;
 unsigned long lastDebounceTimeMin = 0;
-const unsigned long debounceDelay = 50;
 
-int pulseDoel = 20;  // Startwaarde
+
+/// servo 
+#include <Servo.h>
+
+Servo myservo;  // create Servo object to control a servo
+// twelve Servo objects can be created on most boards
+
+int pos = 0;    // variable to store the servo position
+
+
+
 
 void setup() {
   pinMode(plusKnop, INPUT_PULLUP);
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
+
   Serial.begin(9600);
+    myservo.attach(2);
 }
 
 void loop() {
   int plusReading = digitalRead(plusKnop);
   int minReading = digitalRead(minKnop);
 
-  // Debounce voor plusKnop
+  // -------- Debounce voor plusKnop
   if (plusReading != lastPlusState) {
     lastDebounceTimePlus = millis();
   }
@@ -31,19 +50,15 @@ void loop() {
     if (plusReading != plusState) {
       plusState = plusReading;
       if (plusState == LOW) {
-        if (pulseDoel < 60) {
-          pulseDoel++;
-          Serial.print("pulseDoel verhoogd: ");
-          Serial.println(pulseDoel);
-          ledFeedback();
-        } else {
-          grensKnipper();
-        }
+        pulseDoel += 2;
+        Serial.print("pulseDoel verhoogd: ");
+        Serial.println(pulseDoel);
+        ledFeedback();
       }
     }
   }
 
-  // Debounce voor minKnop
+  // ----------Debounce voor minKnop
   if (minReading != lastMinState) {
     lastDebounceTimeMin = millis();
   }
@@ -52,14 +67,10 @@ void loop() {
     if (minReading != minState) {
       minState = minReading;
       if (minState == LOW) {
-        if (pulseDoel > 20) {
-          pulseDoel--;
-          Serial.print("pulseDoel verlaagd: ");
-          Serial.println(pulseDoel);
-          ledFeedback();
-        } else {
-          grensKnipper();
-        }
+        pulseDoel -= 2;
+        Serial.print("pulseDoel verlaagd: ");
+        Serial.println(pulseDoel);
+        ledFeedback();
       }
     }
   }
@@ -68,19 +79,14 @@ void loop() {
   lastMinState = minReading;
 }
 
-// Korte feedback bij wijziging
-void ledFeedback() {
-  digitalWrite(ledPin, HIGH);
-  delay(50);
-  digitalWrite(ledPin, LOW);
+void servoDraai() {
+    myservo.write(pulseDoel);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15 ms for the servo to reach the position
 }
 
-// Knipper 3 keer als grens bereikt is
-void grensKnipper() {
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(ledPin, HIGH);
-    delay(100);
-    digitalWrite(ledPin, LOW);
-    delay(100);
-  }
+
+void ledFeedback() {
+  digitalWrite(ledPin, HIGH);
+  delay(500);  // halve seconde aan
+  digitalWrite(ledPin, LOW);
 }

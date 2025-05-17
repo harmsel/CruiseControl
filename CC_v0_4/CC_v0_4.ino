@@ -1,5 +1,9 @@
 // Cruise Control voor auto met servo- en pulsemeting
 
+//90km = 93 rps
+//80km = 84 per sec
+//50km = 26 per sec
+
 #include <Servo.h>
 
 // --- Servo
@@ -11,12 +15,12 @@ int servoPin = 2;
 // --- Pulsmeting
 const int analogPin = A0;       // hier zit de magneetspoel aan vast
 const int threshold = 550;      //voltage waarop de puls geteld gaat worden
-unsigned int pulseCounter = 0;  //de teller elke 0.5 seconden de omwentelingen meet en ook weer worrdt gereset
+unsigned int pulseCounter = 0;  //de teller elke seconden de omwentelingen meet en ook weer worrdt gereset
 int gemetenPuls = 0;            // deze is nodig zodat pulseDoel opgeslagen kan worden (pulseCounter reset elke 0.5 seconden)
 int pulseDoel = 0;              // ingestelde snelheid
 bool pulseDetected = false;
 unsigned long lastTime = 0;
-const int interval = 500;  //zo lang gaat hij pulsen tellen
+const int interval = 1000;  //zo lang gaat hij pulsen tellen
 
 // --- Knopjes
 int plusKnop = 10;

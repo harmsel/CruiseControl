@@ -1,5 +1,5 @@
 # Cruise controll
-Hoe maak je op basis van standaard onderdelen een cruise controll die met behulp van een servo de gasveer aantrekt en loslaat aan de hand van de gemeten snelheid.
+Maak op basis van standaard onderdelen een cruise controll
 
 ### Benodigdheden
 

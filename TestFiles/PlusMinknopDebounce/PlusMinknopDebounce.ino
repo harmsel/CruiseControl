@@ -1,32 +1,21 @@
+#include <Servo.h>
+
+//56 graden = 90km/h op vlak
+
+// Pinconfiguratie
 const int plusKnop = 10;
 const int minKnop = 9;
 const int ledPin = 11;
+const int servoPin = 2;
 
-int pulseDoel = 20;
+Servo myservo;
 
-// Debounce-instellingen
-const unsigned long debounceDelay = 50;
+int servoHoek = 20;
 
-int lastPlusState = HIGH;
-int lastMinState = HIGH;
+const unsigned long stapInterval = 500;  // 2 per seconde = 500 ms
 
-int plusState;
-int minState;
-
-unsigned long lastDebounceTimePlus = 0;
-unsigned long lastDebounceTimeMin = 0;
-
-
-/// servo 
-#include <Servo.h>
-
-Servo myservo;  // create Servo object to control a servo
-// twelve Servo objects can be created on most boards
-
-int pos = 0;    // variable to store the servo position
-
-
-
+unsigned long vorigePlusTijd = 0;
+unsigned long vorigeMinTijd = 0;
 
 void setup() {
   pinMode(plusKnop, INPUT_PULLUP);
@@ -34,59 +23,42 @@ void setup() {
   pinMode(ledPin, OUTPUT);
 
   Serial.begin(9600);
-    myservo.attach(2);
+  myservo.attach(servoPin);
+  myservo.write(servoHoek);  // beginpositie
+   Serial.print(" +++++++ RESET +++++ ");
 }
 
 void loop() {
-  int plusReading = digitalRead(plusKnop);
-  int minReading = digitalRead(minKnop);
+  // Lees knopstatussen (actief laag)
+  bool plusIngedrukt = digitalRead(plusKnop) == LOW;
+  bool minIngedrukt  = digitalRead(minKnop)  == LOW;
+  unsigned long nu = millis();
 
-  // -------- Debounce voor plusKnop
-  if (plusReading != lastPlusState) {
-    lastDebounceTimePlus = millis();
+  // Plusknop ingedrukt → verhogen
+  if (plusIngedrukt && nu - vorigePlusTijd >= stapInterval) {
+    servoHoek += 2;
+    servoHoek = constrain(servoHoek, 0, 180);  // evt. grens
+    Serial.print("servoHoek verhoogd: ");
+    Serial.println(servoHoek);
+    myservo.write(servoHoek);
+    ledFeedback();
+    vorigePlusTijd = nu;
   }
 
-  if ((millis() - lastDebounceTimePlus) > debounceDelay) {
-    if (plusReading != plusState) {
-      plusState = plusReading;
-      if (plusState == LOW) {
-        pulseDoel += 2;
-        Serial.print("pulseDoel verhoogd: ");
-        Serial.println(pulseDoel);
-        ledFeedback();
-      }
-    }
+  // Minknop ingedrukt → verlagen
+  if (minIngedrukt && nu - vorigeMinTijd >= stapInterval) {
+    servoHoek -= 2;
+    servoHoek = constrain(servoHoek, 0, 66);
+    Serial.print("servoHoek --: ");
+    Serial.println(servoHoek);
+    myservo.write(servoHoek);
+    ledFeedback();
+    vorigeMinTijd = nu;
   }
-
-  // ----------Debounce voor minKnop
-  if (minReading != lastMinState) {
-    lastDebounceTimeMin = millis();
-  }
-
-  if ((millis() - lastDebounceTimeMin) > debounceDelay) {
-    if (minReading != minState) {
-      minState = minReading;
-      if (minState == LOW) {
-        pulseDoel -= 2;
-        Serial.print("pulseDoel verlaagd: ");
-        Serial.println(pulseDoel);
-        ledFeedback();
-      }
-    }
-  }
-
-  lastPlusState = plusReading;
-  lastMinState = minReading;
 }
-
-void servoDraai() {
-    myservo.write(pulseDoel);              // tell servo to go to position in variable 'pos'
-    delay(15);                       // waits 15 ms for the servo to reach the position
-}
-
 
 void ledFeedback() {
   digitalWrite(ledPin, HIGH);
-  delay(500);  // halve seconde aan
+  delay(200);  // halve seconde aan
   digitalWrite(ledPin, LOW);
 }

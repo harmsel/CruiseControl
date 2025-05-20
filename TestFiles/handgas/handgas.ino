@@ -9,18 +9,22 @@ const int ledPin = 11;
 const int servoPin = 2;
 
 Servo myservo;
-int servoHoek = 12;
+int servoHoek = 0;
 
 const unsigned long stapInterval = 500;  // 2 per seconde = 500 ms
 
 unsigned long vorigePlusTijd = 0;
 unsigned long vorigeMinTijd = 0;
 
+// --- Remschakelaar
+int remSchakelaar = 12;
+
+
 void setup() {
   pinMode(plusKnop, INPUT_PULLUP);
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
-
+  pinMode(remSchakelaar, INPUT);
   Serial.begin(9600);
   myservo.attach(servoPin);
 }
@@ -34,7 +38,7 @@ void loop() {
   // Plusknop ingedrukt → verhogen
   if (plusIngedrukt && nu - vorigePlusTijd >= stapInterval) {
     servoHoek += 2;
-    servoHoek = constrain(servoHoek, 0, 180);  // evt. grens
+    servoHoek = constrain(servoHoek, 0, 6);  // evt. grens
     Serial.print("servoHoek verhoogd: ");
     Serial.println(servoHoek);
     ledFeedback();
@@ -45,18 +49,32 @@ void loop() {
   if (minIngedrukt && nu - vorigeMinTijd >= stapInterval) {
     servoHoek -= 2;
     servoHoek = constrain(servoHoek, 0, 66);
-    Serial.print("servoHoek --: ");
-    Serial.println(servoHoek);
+
 
     ledFeedback();
     vorigeMinTijd = nu;
   }
   myservo.write(servoHoek);
   delay(10);
+  remFunctie();
+  Serial.print("servoHoek --: ");
+  Serial.println(servoHoek);
 }
 
+
+
+////.  ----------- FUNCTIES ------------------
 void ledFeedback() {
   digitalWrite(ledPin, HIGH);
   delay(200);  // halve seconde aan
   digitalWrite(ledPin, LOW);
+}
+
+
+void remFunctie() {
+  if (digitalRead(remSchakelaar) == HIGH) {
+    Serial.println("Remschakelaar geactiveerd");
+    int pulseDoel = 0;
+    servoHoek = 0;
+  }
 }

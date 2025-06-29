@@ -7,7 +7,7 @@
 #include <Servo.h>
 
 // --- Servo
-float servoHoek = 0;
+float servoHoek = 10;
 float aanstuurFactor = 1.5;
 Servo mijnServo;
 int servoPin = 2;
@@ -40,7 +40,7 @@ int helderheid = 0;
 int fadeRichting = 1;
 unsigned long vorigeFadeTijd = 0;
 
-// --- Remschakelaar
+// --- Remschakelaar en koppelingschakelaar
 int remSchakelaar = 12;
 
 void setup() {
@@ -50,8 +50,8 @@ void setup() {
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(remSchakelaar, INPUT);
   mijnServo.attach(servoPin);
-  servoHoek = constrain(servoHoek, 0, 70);  //beperk de servo in zijn beweging
-  mijnServo.write(0);
+  servoHoek = constrain(servoHoek, 10, 180);  //beperk de servo in zijn beweging
+  mijnServo.write(10);
 }
 //// ----------------------------------    BEGIN LOOOOOOOP -----------------------------------------------------------
 void loop() {
@@ -101,7 +101,7 @@ void loop() {
 // ---------------------------------------------    EINDE LOOP Begin Functies ------------------------------------- //
 
 
-void servoAansturing() {
+void servoAansturing() { // pas de servohoek aan, op basis van de ingestelde doelsnelheid en de huidige snelheid
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
@@ -114,7 +114,6 @@ void servoAansturing() {
       servoHoek--;
     }
 
-    servoHoek = constrain(servoHoek, 1, 71);
     mijnServo.write((int)servoHoek);
 
     // Debug:
@@ -122,9 +121,6 @@ void servoAansturing() {
     // Serial.println(servoHoek);
   }
 }
-
-
-
 
 
 
@@ -173,6 +169,6 @@ void remFunctie() {
     Serial.println("Remschakelaar geactiveerd");
     pulseDoel = 0;
     ccActief = false;
-    mijnServo.write(2);
+    mijnServo.write(10);
   }
 }

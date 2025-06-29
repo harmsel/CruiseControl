@@ -73,7 +73,7 @@ void loop() {
       ccActief = true;
       Serial.println("CC Geactiveerd Pulsdoen = gemetenPuls");
       pulseDoel = gemetenPuls;
-      servoHoek = 100;
+      servoHoek = 150;
       beep(1000, 200);  // Frequentie in Hz, Duur in ms
     }
   } else {
@@ -94,20 +94,18 @@ void servoAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= 300) {  // aanpassing van de servostand elke zoveel tijd
+  if (huidigeTijd - vorigeAanpassingTijd >= 1100) {  // aanpassing van de servostand elke zoveel tijd
     vorigeAanpassingTijd = huidigeTijd;
 
     if (pulseDoel > gemetenPuls) {
-      servoHoek += 2;
-      Serial.print("------------------   Servohoek:  ");
+      servoHoek = servoHoek + (pulseDoel - gemetenPuls);
+      Serial.print(" + + + + + +   Servohoek:  ");
       Serial.println(servoHoek);
-      fadeLedLangzaam(100);  // in MIcro's
 
     } else if (pulseDoel < gemetenPuls) {
-      servoHoek -= 2;  //twee van af trekken
-      Serial.print("Servohoek: ");
+      servoHoek = servoHoek - (gemetenPuls - pulseDoel);
+      Serial.print("- - - - - - - - - -  Servohoek: ");
       Serial.println(servoHoek);
-      fadeLedLangzaam(100);  // in MIcro's
     }
     mijnServo.write(servoHoek);
   }

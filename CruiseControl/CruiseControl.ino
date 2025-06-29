@@ -7,8 +7,7 @@
 #include <Servo.h>
 
 // --- Servo
-float servoHoek = 10;
-float aanstuurFactor = 1.5;
+int servoHoek = 10;
 Servo mijnServo;
 int servoPin = 2;
 
@@ -43,6 +42,10 @@ unsigned long vorigeFadeTijd = 0;
 // --- Remschakelaar en koppelingschakelaar
 int remSchakelaar = 12;
 
+// --- piezo
+const int buzzerPin = 6;
+int eersteKeerActief = true;
+
 void setup() {
   Serial.begin(9600);
   pinMode(ledPin, OUTPUT);
@@ -50,19 +53,21 @@ void setup() {
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(remSchakelaar, INPUT);
   mijnServo.attach(servoPin);
-  servoHoek = constrain(servoHoek, 10, 180);  //beperk de servo in zijn beweging
+  servoHoek = constrain(servoHoek, 10, 176);  //beperk de servo in zijn beweging
   mijnServo.write(10);
+  pinMode(buzzerPin, OUTPUT);
 }
 //// ----------------------------------    BEGIN LOOOOOOOP -----------------------------------------------------------
 void loop() {
   bool plusIngedrukt = digitalRead(plusKnop) == LOW;
   bool minIngedrukt = digitalRead(minKnop) == LOW;
 
-  // --- Aanzetten met beide knoppen
+
+  // --- Aanzetten van de CC =  beide knoppen indrukken
   if (plusIngedrukt && minIngedrukt) {
     if (beideIngedruktSinds == 0) {
       beideIngedruktSinds = millis();
-    } else if (millis() - beideIngedruktSinds >= 1000 && !ccAan) {
+    } else if (millis() - beideIngedruktSinds >= 500 && !ccAan) {
       ccAan = true;
       Serial.println("CC -- AANGEZET");
     }
@@ -70,7 +75,7 @@ void loop() {
     beideIngedruktSinds = 0;
   }
 
-  // --- ACTIveren maken met plusknop
+  // --- Inschakelen van de CC =  plusknop ingedrukt houden
   if (ccAan) {
     if (plusIngedrukt) {
 
@@ -89,37 +94,58 @@ void loop() {
 
   // --- LED fade
   if (ccAan && !ccActief) {
-    fadeLedLangzaam(9);  // langzaam knipperen van de led
+    fadeLed(9000);  // langzaam knipperen van de led
 
-  } else if (ccActief) {
-    fadeLedLangzaam(1);  // snel
+  } else if (ccActief) {  //CC is ingeschakeld
+    fadeLed(1000);        //  faden in MICRO's !!
     servoAansturing();
     remFunctie();
+    if (eersteKeerActief) {  //alleen bij het actief maken een keer piepen
+      beep(1000, 100);       // Frequentie: 500 Hz, Duur: 100 ms
+      eersteKeerActief = false;
+    }
   }
+
+  if ((plusIngedrukt || minIngedrukt) && ccAan) {  // feedback bij indrukken knopjes
+    fadeLed(200);                                  //  snel faden in MICRO's !!
+  }
+
+
   pulsDetectie();
 }
 // ---------------------------------------------    EINDE LOOP Begin Functies ------------------------------------- //
 
 
-void servoAansturing() { // pas de servohoek aan, op basis van de ingestelde doelsnelheid en de huidige snelheid
+void servoAansturing() {  // pas de servohoek aan, op basis van de ingestelde doelsnelheid en de huidige snelheid
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
+
+  // if (pulseDoel > 10 && pulseDoel < 110) {  // zorg dat hij niet gaat werken bij vreemde pulswaarden
+
+  // if (eersteKeerActief) {
+  //   mijnServo.write(150);
+  // }
+
+
 
   if (huidigeTijd - vorigeAanpassingTijd >= 30) {  // nummer is de sneheid van het draaien van de servo
     vorigeAanpassingTijd = huidigeTijd;
 
     if (pulseDoel > gemetenPuls) {
       servoHoek++;
+
+      Serial.print("Servohoek: ");
+      Serial.println(servoHoek);
     } else if (pulseDoel < gemetenPuls) {
       servoHoek--;
+
+      Serial.print("Servohoek: ");
+      Serial.println(servoHoek);
     }
 
     mijnServo.write((int)servoHoek);
-
-    // Debug:
-    // Serial.print("Servohoek: ");
-    // Serial.println(servoHoek);
   }
+  //}
 }
 
 
@@ -150,8 +176,8 @@ void pulsDetectie() {
 // ---- EINDE Pulsdetectie
 
 
-void fadeLedLangzaam(int fadeInterval) {
-  unsigned long huidigeTijd = millis();
+void fadeLed(int fadeInterval) {
+  unsigned long huidigeTijd = micros();
   if (huidigeTijd - vorigeFadeTijd >= fadeInterval) {
     vorigeFadeTijd = huidigeTijd;
 
@@ -164,11 +190,22 @@ void fadeLedLangzaam(int fadeInterval) {
   }
 }
 
+
+// ---  Functie die een piep laat horen
+void beep(int frequency, int duration) {
+  tone(buzzerPin, frequency);
+  delay(duration);
+  noTone(buzzerPin);
+}
+
+
+
 void remFunctie() {
   if (digitalRead(remSchakelaar) == HIGH) {
     Serial.println("Remschakelaar geactiveerd");
     pulseDoel = 0;
     ccActief = false;
     mijnServo.write(10);
+    eersteKeerActief = true;
   }
 }

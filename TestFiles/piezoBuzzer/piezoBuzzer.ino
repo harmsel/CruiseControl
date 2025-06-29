@@ -1,17 +1,12 @@
-const byte speakerPin = 6;
-unsigned long lastPeriodStart = 0;
+const int buzzerPin = 6;  
 
 void setup() {
-  lastPeriodStart = millis(); // Starttijd initialiseren
+  pinMode(buzzerPin, OUTPUT);
 }
 
 void loop() {
-piezoPieper(1, 2000);//eerste getal = lengte piep, 2e getal = tijd tussen een piep
-}
-
-void piezoPieper(const int onDuration, const int periodDuration){
-  if (millis() - lastPeriodStart >= periodDuration) {
-    lastPeriodStart += periodDuration;
-    tone(speakerPin, 550, onDuration); // Speel een 550 Hz toon voor onDuration
-  }
+  tone(buzzerPin, 500);   // Speel een toon van 1000 Hz
+  delay(100);              // Duur van de piep: 100 milliseconden
+  noTone(buzzerPin);       // Stop de toon
+  delay(2900);              // Wacht de rest van de seconde (100 + 900 = 1000 ms)
 }

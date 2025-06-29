@@ -1,6 +1,6 @@
 #include <Servo.h>
 
-//56 graden = 90km/h op vlak
+//150 graden = 90km/h op vlak
 
 // Pinconfiguratie
 const int plusKnop = 10;
@@ -9,7 +9,7 @@ const int ledPin = 11;
 const int servoPin = 2;
 
 Servo myservo;
-int servoHoek = 0;
+int servoHoek = 10;
 
 const unsigned long stapInterval = 500;  // 2 per seconde = 500 ms
 
@@ -19,7 +19,6 @@ unsigned long vorigeMinTijd = 0;
 // --- Remschakelaar
 int remSchakelaar = 12;
 
-
 void setup() {
   pinMode(plusKnop, INPUT_PULLUP);
   pinMode(minKnop, INPUT_PULLUP);
@@ -27,6 +26,7 @@ void setup() {
   pinMode(remSchakelaar, INPUT);
   Serial.begin(9600);
   myservo.attach(servoPin);
+  servoHoek = constrain(servoHoek, 0, 175);  //beperk de servo in zijn beweging
 }
 
 void loop() {
@@ -37,23 +37,26 @@ void loop() {
 
   // Plusknop ingedrukt → verhogen
   if (plusIngedrukt && nu - vorigePlusTijd >= stapInterval) {
-    servoHoek += 2;
-    servoHoek = constrain(servoHoek, 0, 6);  // evt. grens
-    Serial.print("servoHoek verhoogd: ");
-    Serial.println(servoHoek);
+
+    if (servoHoek>=100) {
+      servoHoek += 4;
+      Serial.print("servoHoek verhoogd: ");
+      Serial.println(servoHoek);
+    }else{
+      servoHoek = 150;
+    }
+
     ledFeedback();
     vorigePlusTijd = nu;
   }
 
   // Minknop ingedrukt → verlagen
   if (minIngedrukt && nu - vorigeMinTijd >= stapInterval) {
-    servoHoek -= 2;
-    servoHoek = constrain(servoHoek, 0, 66);
-
-
+    servoHoek -= 4;
     ledFeedback();
     vorigeMinTijd = nu;
   }
+
   myservo.write(servoHoek);
   delay(10);
   remFunctie();
@@ -66,7 +69,7 @@ void loop() {
 ////.  ----------- FUNCTIES ------------------
 void ledFeedback() {
   digitalWrite(ledPin, HIGH);
-  delay(200);  // halve seconde aan
+  delay(200);  // kort aan
   digitalWrite(ledPin, LOW);
 }
 
@@ -74,7 +77,11 @@ void ledFeedback() {
 void remFunctie() {
   if (digitalRead(remSchakelaar) == HIGH) {
     Serial.println("Remschakelaar geactiveerd");
-    int pulseDoel = 0;
-    servoHoek = 0;
+    ledFeedback();
+    servoHoek = 10;
   }
+}
+
+void draaiServo() {
+
 }

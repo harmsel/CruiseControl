@@ -1,10 +1,5 @@
 // Cruise Control voor auto met servo- en pulsemeting
 
-//90km = 93 rps
-//80km = 84 per sec
-//60km = 30 per sec
-//50km = 26 per sec
-
 #include <Servo.h>
 
 // --- Servo
@@ -13,14 +8,14 @@ Servo mijnServo;
 int servoPin = 2;
 
 // --- Pulsmeting
-const int analogPin = A0;       // hier zit de magneetspoel aan vast
-const int threshold = 550;      //voltage waarop de puls geteld gaat worden
-unsigned int pulseCounter = 0;  //de teller elke seconden de omwentelingen meet en ook weer worrdt gereset
-int gemetenPuls = 0;            // deze is nodig zodat pulseDoel opgeslagen kan worden (pulseCounter reset elke 0.5 seconden)
-int pulseDoel = 0;              // ingestelde snelheid
+const int analogPin = A0;
+const int threshold = 550;
+unsigned int pulseCounter = 0;
+int gemetenPuls = 0;
+int pulseDoel = 0;
 bool pulseDetected = false;
 unsigned long lastTime = 0;
-const int interval = 1000;  //zo lang gaat hij pulsen tellen
+const int interval = 1000;
 
 // --- Knopjes
 const int plusKnop = 10;
@@ -29,10 +24,6 @@ unsigned long beideIngedruktSinds = 0;
 bool ccAan = false;
 bool ccActief = false;
 unsigned long ingedruktSinds = 0;
-
-bool vorigeKnopStatus = HIGH;           //voor debounce
-unsigned long laatsteDebounceTijd = 0;  // debounce plusknop
-
 
 // --- LED
 int ledPin = 11;
@@ -54,66 +45,69 @@ void setup() {
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(remSchakelaar, INPUT);
   mijnServo.attach(servoPin);
-  servoHoek = constrain(servoHoek, 0, 179);  //beperk de servo in zijn beweging
+  servoHoek = constrain(servoHoek, 0, 179);
   mijnServo.write(10);
 }
-//// ----------------------------------    BEGIN LOOOOOOOP -----------------------------------------------------------
+
 void loop() {
   bool plusIngedrukt = digitalRead(plusKnop) == LOW;
   bool minIngedrukt = digitalRead(minKnop) == LOW;
 
-
-  // --- ACTIveren maken met plusknop
-
   if (plusIngedrukt) {
-
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
-    } else if (millis() - ingedruktSinds >= 1000) {  // pas na het inhouden van de knop gaat het aan
+    } else if (millis() - ingedruktSinds >= 1000) {
       ccActief = true;
-      Serial.println("CC Geactiveerd Pulsdoen = gemetenPuls");
+      Serial.println("CC Geactiveerd Pulsdoel = gemetenPuls");
       pulseDoel = gemetenPuls;
       servoHoek = 150;
-      beep(1000, 200);  // Frequentie in Hz, Duur in ms
+       mijnServo.write(servoHoek);
+      beep(1000, 200);
     }
   } else {
     ingedruktSinds = 0;
   }
 
   if (ccActief) {
-    fadeLedLangzaam(2000);  // in MIcro's
+    fadeLedLangzaam(2000);
     servoAansturing();
     remFunctie();
   }
+
   pulsDetectie();
 }
-// ---------------------------------------------    EINDE LOOP Begin Functies ------------------------------------- //
 
-
+// ---------- SERVO AANSTURING met P-regelaar ----------
 void servoAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= 1100) {  // aanpassing van de servostand elke zoveel tijd
+  if (huidigeTijd - vorigeAanpassingTijd >= 100) {
     vorigeAanpassingTijd = huidigeTijd;
 
-    if (pulseDoel > gemetenPuls) {
-      servoHoek = servoHoek + (pulseDoel - gemetenPuls);
-      Serial.print(" + + + + + +   Servohoek:  ");
-      Serial.println(servoHoek);
+    int fout = pulseDoel - gemetenPuls;
+    float Kp = 1.0;
 
-    } else if (pulseDoel < gemetenPuls) {
-      servoHoek = servoHoek - (gemetenPuls - pulseDoel);
-      Serial.print("- - - - - - - - - -  Servohoek: ");
+    // Dode zone om kleine fouten te negeren
+    if (abs(fout) > 2) {
+      int aanpassing = fout * Kp;
+      aanpassing = constrain(aanpassing, -5, 5);  // Maximaal 5 graden per stap
+
+      servoHoek += aanpassing;
+      servoHoek = constrain(servoHoek, 10, 179);
+      mijnServo.write(servoHoek);
+
+      Serial.print("fout: ");
+      Serial.print(fout);
+      Serial.print(" | aanpassing: ");
+      Serial.print(aanpassing);
+      Serial.print(" | servoHoek: ");
       Serial.println(servoHoek);
     }
-    mijnServo.write(servoHoek);
   }
 }
 
-
-
-// ---------- PULSE detectie:
+// ---------- PULS DETECTIE ----------
 void pulsDetectie() {
   int sensorValue = analogRead(analogPin);
   if (sensorValue > threshold) {
@@ -138,7 +132,7 @@ void pulsDetectie() {
   }
 }
 
-/// - LED FADE
+// ---------- LED FADE ----------
 void fadeLedLangzaam(int fadeInterval) {
   unsigned long huidigeTijd = micros();
   if (huidigeTijd - vorigeFadeTijd >= fadeInterval) {
@@ -148,18 +142,19 @@ void fadeLedLangzaam(int fadeInterval) {
     if (helderheid <= 0 || helderheid >= 255) {
       fadeRichting = -fadeRichting;
     }
+
     analogWrite(ledPin, helderheid);
   }
 }
 
-// ---  Pieeeeep
+// ---------- PIEZO BEEP ----------
 void beep(int frequency, int duration) {
   tone(buzzerPin, frequency);
   delay(duration);
   noTone(buzzerPin);
 }
 
-//// -- remmen
+// ---------- REM FUNCTIE ----------
 void remFunctie() {
   if (digitalRead(remSchakelaar) == HIGH) {
     Serial.println("Remschakelaar geactiveerd");

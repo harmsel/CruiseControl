@@ -1,0 +1,187 @@
+// Cruise Control voor auto met servo- en pulsmeting
+
+/// allleen bij >60km
+
+#include <Servo.h>
+
+// --- Servo
+int servoHoek = 0;
+Servo mijnServo;
+
+// --- Pulsmeting
+unsigned int pulsCounter = 0;
+int gemetenPuls = 0;
+int pulsDoel = 0;
+bool pulsDetected = false;
+unsigned long lastTime = 0;
+
+// --- Knopjes
+const int plusKnop = 10;
+const int minKnop = 9;
+bool ccActief = false;
+unsigned long ingedruktSinds = 0;
+bool plusIngedrukt = 0;
+bool minIngedrukt = 0;
+
+
+
+// --- LED
+int ledPin = 11;
+
+
+// --- Remschakelaar
+int remSchakelaar = 12;
+
+// --- piezo
+const int buzzerPin = 6;
+int eersteKeerActief = true;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(ledPin, OUTPUT);
+  pinMode(plusKnop, INPUT_PULLUP);
+  pinMode(minKnop, INPUT_PULLUP);
+  pinMode(remSchakelaar, INPUT);
+  mijnServo.attach(2);
+  servoHoek = constrain(servoHoek, 0, 179);
+  mijnServo.write(10);
+}
+
+void loop() {
+  plusIngedrukt = digitalRead(plusKnop) == LOW;
+  minIngedrukt = digitalRead(minKnop) == LOW;
+
+  if (plusIngedrukt) {  //&& gemetenPuls > 5 (30km) toevoegen om te voorkomen dat hij niet gaat cc'en
+    if (ingedruktSinds == 0) {
+      ingedruktSinds = millis();
+    } else if ((millis() - ingedruktSinds >= 1000) && (!ccActief)) {
+      ccActief = true;
+      Serial.println(" !!!!!! !!!!! CC Geactiveerd. Pulsdoel = gemetenPuls !!!!! ");
+      pulsDoel = gemetenPuls;
+      servoHoek = 140;
+      mijnServo.write(servoHoek);
+      beep(2000, 200);  //frequwnrie, duur
+      fadeLed(250);     // snelheid faden
+    }
+  } else {
+    ingedruktSinds = 0;
+  }
+
+  if (ccActief) {
+    fadeLed(2000);
+    handmatigBijstellen();
+    servoAansturing();
+    remFunctie();
+  }
+
+  pulsDetectie();
+}
+
+void handmatigBijstellen() {
+  static unsigned long vorigePlusTijd = 0;  // Met 'static' wordt vorigePlusTijd alleen bij de eerste aanroep 0
+  static unsigned long vorigeMinTijd = 0;
+
+  // Plusknop ingedrukt → verhogen
+  unsigned long nu = millis();
+
+  // Plusknop ingedrukt → verhogen
+  if (plusIngedrukt && nu - vorigePlusTijd >= 200) {
+
+    pulsDoel += 1;
+    Serial.print("+ + + + + + + Verhogen ");
+    vorigePlusTijd = nu;
+  }
+
+  // Minknop ingedrukt → verlagen
+  if (minIngedrukt && nu - vorigeMinTijd >= 200) {
+    pulsDoel -= 1;
+    Serial.print(" --- Verlagen");
+    vorigeMinTijd = nu;
+  }
+}
+
+
+// ---------- SERVO AANSTURING ----------
+void servoAansturing() {
+  static unsigned long vorigeAanpassingTijd = 0;
+  unsigned long huidigeTijd = millis();
+
+  if (huidigeTijd - vorigeAanpassingTijd >= 500) {  // elke halve seconde kijken of aanpassing nodig is
+    vorigeAanpassingTijd = huidigeTijd;
+
+    int fout = pulsDoel - gemetenPuls;
+
+    if (abs(fout) > 1) {              //reageer niet op elke afwijking. Abs kijkt wat de waarde is tov 0
+      fout = constrain(fout, -3, 3);  // Maximaal  graden per aanpassing
+      servoHoek += fout;
+      mijnServo.write(servoHoek);
+
+
+      Serial.print(" | aanpassing: ");
+      Serial.print(fout);
+      Serial.print(" | servoHoek: ");
+      Serial.print(servoHoek);
+    }
+  }
+}
+
+// ---------- PULS DETECTIE ----------
+void pulsDetectie() {
+  int sensorValue = analogRead(A0);
+  if (sensorValue > 550) {  //de treshold op 550 zetten, anders meet hij te weinig pulsn of te veel
+    if (!pulsDetected) {
+      pulsCounter++;
+      pulsDetected = true;
+    }
+  } else {
+    pulsDetected = false;
+  }
+
+  unsigned long currentTime = millis();
+  if (currentTime - lastTime >= 500) {  // waarde is de duur van de meting
+    Serial.print(" | puls DOEL: ");
+    Serial.print(pulsDoel);
+    Serial.print("  | Pulse Huidig: ");
+    Serial.println(pulsCounter);
+
+    gemetenPuls = pulsCounter;
+    pulsCounter = 0;
+    lastTime = currentTime;
+  }
+}
+
+// ---------- LED FADE ----------
+void fadeLed(int fadeInterval) {
+  static int helderheid = 0;
+  static int fadeRichting = 1;
+  static unsigned long vorigeFadeTijd = 0;  // Deze moet ook static zijn
+
+  unsigned long huidigeTijd = micros();  // Let op: deze gebruikt micros()
+
+  if (huidigeTijd - vorigeFadeTijd >= fadeInterval) {
+    vorigeFadeTijd = huidigeTijd;
+
+    helderheid += fadeRichting;
+    if (helderheid <= 0 || helderheid >= 255) {
+      fadeRichting = -fadeRichting;
+    }
+    analogWrite(ledPin, helderheid);
+  }
+}
+
+// ---------- PIEZO BEEP ----------
+void beep(int frequency, int duration) {
+  tone(buzzerPin, frequency);
+  delay(duration);
+  noTone(buzzerPin);
+}
+
+// ---------- REM FUNCTIE ----------
+void remFunctie() {
+  if (digitalRead(remSchakelaar) == HIGH) {
+    Serial.println("Remschakelaar geactiveerd");
+    mijnServo.write(10);
+    pulsDoel = 0;
+    ccActief = false;
+  }
+}

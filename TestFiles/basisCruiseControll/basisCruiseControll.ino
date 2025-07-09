@@ -15,7 +15,7 @@ int gemetenPuls = 0;
 int pulseDoel = 0;
 bool pulseDetected = false;
 unsigned long lastTime = 0;
-const int interval = 1000;
+const int interval = 500;  // bij 1000 is 90 rpm gelijk aan 90km
 
 // --- Knopjes
 const int plusKnop = 10;
@@ -56,12 +56,12 @@ void loop() {
   if (plusIngedrukt) {
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
-    } else if (millis() - ingedruktSinds >= 1000) {
+    } else if ((millis() - ingedruktSinds >= 1000) && (!ccActief)) {
       ccActief = true;
-      Serial.println("CC Geactiveerd Pulsdoel = gemetenPuls");
+      Serial.println(" !!!!!! !!!!! CC Geactiveerd Pulsdoel = gemetenPuls !!!!! ");
       pulseDoel = gemetenPuls;
-      servoHoek = 150;
-       mijnServo.write(servoHoek);
+      servoHoek = 140;
+      mijnServo.write(servoHoek);
       beep(1000, 200);
     }
   } else {
@@ -82,27 +82,28 @@ void servoAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= 100) {
+  if (huidigeTijd - vorigeAanpassingTijd >= 500) {  // was 100.
     vorigeAanpassingTijd = huidigeTijd;
 
     int fout = pulseDoel - gemetenPuls;
-    float Kp = 1.0;
+    float Kp = 1.0;  // was 1.0
 
     // Dode zone om kleine fouten te negeren
-    if (abs(fout) > 2) {
+    if (abs(fout) > 1) {
       int aanpassing = fout * Kp;
-      aanpassing = constrain(aanpassing, -5, 5);  // Maximaal 5 graden per stap
+      aanpassing = constrain(aanpassing, -3, 3);  // was 5. Is het Maximaal  graden per stap
 
       servoHoek += aanpassing;
-      servoHoek = constrain(servoHoek, 10, 179);
       mijnServo.write(servoHoek);
 
+      /* 
       Serial.print("fout: ");
       Serial.print(fout);
+     */
       Serial.print(" | aanpassing: ");
       Serial.print(aanpassing);
       Serial.print(" | servoHoek: ");
-      Serial.println(servoHoek);
+      Serial.print(servoHoek);
     }
   }
 }
@@ -121,9 +122,9 @@ void pulsDetectie() {
 
   unsigned long currentTime = millis();
   if (currentTime - lastTime >= interval) {
-    Serial.print(" pulse DOEL: ");
+    Serial.print(" | pulse DOEL: ");
     Serial.print(pulseDoel);
-    Serial.print(" Pulse Huidig: ");
+    Serial.print("  | Pulse Huidig: ");
     Serial.println(pulseCounter);
 
     gemetenPuls = pulseCounter;

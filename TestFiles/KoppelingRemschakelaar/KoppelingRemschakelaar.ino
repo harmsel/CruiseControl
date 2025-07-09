@@ -2,7 +2,7 @@ int remSchakelaar = 12;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(remSchakelaar, INPUT);
+  pinMode(remSchakelaar, INPUT_PULLUP);
 }
 
 void loop() {

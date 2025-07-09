@@ -41,7 +41,7 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   pinMode(plusKnop, INPUT_PULLUP);
   pinMode(minKnop, INPUT_PULLUP);
-  pinMode(remSchakelaar, INPUT);
+  pinMode(remSchakelaar, INPUT_PULLUP);
   mijnServo.attach(2);
   mijnServo.write(servoHoek);
 

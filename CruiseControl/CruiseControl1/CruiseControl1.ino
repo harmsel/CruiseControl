@@ -5,8 +5,8 @@
 #include <Servo.h>
 
 // --- Servo
-int servoHoek = 0;
 Servo mijnServo;
+int servoHoek = 10;
 
 // --- Pulsmeting
 unsigned int pulsCounter = 0;
@@ -43,8 +43,8 @@ void setup() {
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(remSchakelaar, INPUT);
   mijnServo.attach(2);
-  servoHoek = constrain(servoHoek, 0, 179);
-  mijnServo.write(10);
+  mijnServo.write(servoHoek);
+
 }
 
 void loop() {
@@ -60,15 +60,14 @@ void loop() {
       pulsDoel = gemetenPuls;
       servoHoek = 140;
       mijnServo.write(servoHoek);
-      beep(2000, 200);  //frequwnrie, duur
-      fadeLed(250);     // snelheid faden
+      beep(2000, 200);  //frequentie, duur
     }
   } else {
     ingedruktSinds = 0;
   }
 
   if (ccActief) {
-    fadeLed(2000);
+    fadeLed(5);
     handmatigBijstellen();
     servoAansturing();
     remFunctie();
@@ -85,17 +84,22 @@ void handmatigBijstellen() {
   unsigned long nu = millis();
 
   // Plusknop ingedrukt → verhogen
-  if (plusIngedrukt && nu - vorigePlusTijd >= 200) {
-
+  if (plusIngedrukt && nu - vorigePlusTijd >= 400) {  // getal is de wachttijd tussen de plussen
     pulsDoel += 1;
-    Serial.print("+ + + + + + + Verhogen ");
+    servoHoek += 3;
+    mijnServo.write(servoHoek);
+    Serial.println("+ + + + + + + Verhogen ");
+    beep(1000, 50);  //frequentie, duur
     vorigePlusTijd = nu;
   }
 
   // Minknop ingedrukt → verlagen
-  if (minIngedrukt && nu - vorigeMinTijd >= 200) {
+  if (minIngedrukt && nu - vorigeMinTijd >= 400) {
     pulsDoel -= 1;
-    Serial.print(" --- Verlagen");
+    servoHoek -= 3;
+    mijnServo.write(servoHoek);
+    Serial.println(" - - - - - - - Verlagen");
+    beep(1000, 50);  //frequentie, duur
     vorigeMinTijd = nu;
   }
 }
@@ -114,6 +118,7 @@ void servoAansturing() {
     if (abs(fout) > 1) {              //reageer niet op elke afwijking. Abs kijkt wat de waarde is tov 0
       fout = constrain(fout, -3, 3);  // Maximaal  graden per aanpassing
       servoHoek += fout;
+      servoHoek = constrain(servoHoek, 0, 179);  //
       mijnServo.write(servoHoek);
 
 
@@ -156,7 +161,7 @@ void fadeLed(int fadeInterval) {
   static int fadeRichting = 1;
   static unsigned long vorigeFadeTijd = 0;  // Deze moet ook static zijn
 
-  unsigned long huidigeTijd = micros();  // Let op: deze gebruikt micros()
+  unsigned long huidigeTijd = millis();
 
   if (huidigeTijd - vorigeFadeTijd >= fadeInterval) {
     vorigeFadeTijd = huidigeTijd;

@@ -1,14 +1,10 @@
 # Cruise controll
 Maak op basis van standaard onderdelen een cruise controll
 
-### Benodigdheden
 
-* Arduino Micro (Micro Pro kan ook)
-* 30kg cm servo
-* Spanningsregelaar 3A - 14V -> 6V
-* remkabel fiets (versnellingskabel kan ook)
-* Pick-up spoel (hall sensor is vogens mij beter)
-* Twee knopjes op je richtingaanwijzer/dashboard met LEDJE
+3D render van de cruisecontrol
+![](images/3Drender1.jpg)
+
 
 ### Werking
 Op het dashboard zit een knop. Deze schakeld de stroom aan/uit naar de cruiscontroll. Bij uitschakelen trekt de gasveer (die die brandstof toevoer regelt) altijd hard genoeg om het gas 'los te laten'.
@@ -25,5 +21,16 @@ Aansluitschema
 Gebruikte stekker
 ![](images/stekker.jpg)
 
-3D render van de cruisecontrol
-![](images/3Drender1.jpg)
+### Benodigdheden
+
+* Arduino Micro (Micro Pro kan ook)
+* 40k/cm 9imod Borstelloze Servo
+* Spanningsregelaar 3A - 14V -> 6V 12V naar 6V Converter Auto Power Buck Converter Spanningsregelaar 3A 18 W 
+* versnellingskabel fiets (bij je fietsenmaker)
+* gastonnetje, https://www.bromfietsshop.nl/nippel-schroef-6x14mm-html.html
+* 
+* Pick-up spoel (hall sensor is volgens mij beter) https://nl.aliexpress.com/item/1005009333531538.html
+
+* Twee knopjes op je richtingaanwijzer/dashboard met LEDJE
+
+

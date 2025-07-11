@@ -1,5 +1,5 @@
 # Cruise controll
-Maak op basis van standaard onderdelen een cruise controll
+Hoe maak ik op basis van standaard onderdelen een cruise control voor mijn oude VW bus?
 
 
 3D render van de cruisecontrol
@@ -32,5 +32,10 @@ Gebruikte stekker
 * Pick-up spoel (hall sensor is volgens mij beter) https://nl.aliexpress.com/item/1005009333531538.html
 
 * Twee knopjes op je richtingaanwijzer/dashboard met LEDJE
+* weerstanden om de spanningdeler te maken (zie bedradingsschema)
+
+Foto, als het kapje er af is
+![](images/ccFoto.jpg)
+
 
 

@@ -86,7 +86,7 @@ void handmatigBijstellen() {
   // Plusknop ingedrukt → verhogen
   if (plusIngedrukt && nu - vorigePlusTijd >= 400) {  // getal is de wachttijd tussen de plussen
     pulsDoel += 1;
-    servoHoek += 3;
+    servoHoek += 2;
     mijnServo.write(servoHoek);
     Serial.println("+ + + + + + + Verhogen ");
     beep(1000, 50);  //frequentie, duur
@@ -96,7 +96,7 @@ void handmatigBijstellen() {
   // Minknop ingedrukt → verlagen
   if (minIngedrukt && nu - vorigeMinTijd >= 400) {
     pulsDoel -= 1;
-    servoHoek -= 3;
+    servoHoek -= 2;
     mijnServo.write(servoHoek);
     Serial.println(" - - - - - - - Verlagen");
     beep(1000, 50);  //frequentie, duur

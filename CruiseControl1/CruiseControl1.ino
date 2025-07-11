@@ -84,7 +84,7 @@ void handmatigBijstellen() {
   unsigned long nu = millis();
 
   // Plusknop ingedrukt → verhogen
-  if (plusIngedrukt && nu - vorigePlusTijd >= 400) {  // getal is de wachttijd tussen de plussen
+  if (plusIngedrukt && nu - vorigePlusTijd >= 500) {  // getal is de wachttijd tussen de plussen
     pulsDoel += 1;
     servoHoek += 2;
     mijnServo.write(servoHoek);
@@ -94,7 +94,7 @@ void handmatigBijstellen() {
   }
 
   // Minknop ingedrukt → verlagen
-  if (minIngedrukt && nu - vorigeMinTijd >= 400) {
+  if (minIngedrukt && nu - vorigeMinTijd >= 500) {
     pulsDoel -= 1;
     servoHoek -= 2;
     mijnServo.write(servoHoek);

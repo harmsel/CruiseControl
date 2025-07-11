@@ -24,3 +24,6 @@ Aansluitschema
 
 Gebruikte stekker
 ![](images/stekker.jpg)
+
+3D render van de cruisecontrol
+![](images/3Drender1.jpg)

@@ -51,12 +51,12 @@ void loop() {
   plusIngedrukt = digitalRead(plusKnop) == LOW;
   minIngedrukt = digitalRead(minKnop) == LOW;
 
-  if (plusIngedrukt) {  //&& gemetenPuls > 5 (30km) toevoegen om te voorkomen dat hij niet gaat cc'en
+  if (plusIngedrukt && (gemetenPuls > 10 && gemetenPuls < 55)) {  //> 30km om te voorkomen dat hij per ongeluk aangaat, bovenwaarde als de sensor raar gaat doen
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
     } else if ((millis() - ingedruktSinds >= 1000) && (!ccActief)) {
       ccActief = true;
-      Serial.println(" !!!!!! !!!!! CC Geactiveerd. Pulsdoel = gemetenPuls !!!!! ");
+      Serial.println("  !!!!!! !!!!! CC Geactiveerd. Pulsdoel = gemetenPuls !!!!! ");
       pulsDoel = gemetenPuls;
       servoHoek = 140;
       mijnServo.write(servoHoek);
@@ -66,7 +66,7 @@ void loop() {
     ingedruktSinds = 0;
   }
 
-  if (ccActief) {
+  if (ccActief) { // alleen aan vanaf 30 km/h en tot 110 km/h
     fadeLed(5);
     handmatigBijstellen();
     servoAansturing();
@@ -86,7 +86,7 @@ void handmatigBijstellen() {
   // Plusknop ingedrukt → verhogen
   if (plusIngedrukt && nu - vorigePlusTijd >= 500) {  // getal is de wachttijd tussen de plussen
     pulsDoel += 1;
-    servoHoek += 2;
+    servoHoek += 4; // was eerder 3
     mijnServo.write(servoHoek);
     Serial.println("+ + + + + + + Verhogen ");
     beep(1000, 50);  //frequentie, duur
@@ -96,7 +96,7 @@ void handmatigBijstellen() {
   // Minknop ingedrukt → verlagen
   if (minIngedrukt && nu - vorigeMinTijd >= 500) {
     pulsDoel -= 1;
-    servoHoek -= 2;
+    servoHoek -= 4; // was eerder 3
     mijnServo.write(servoHoek);
     Serial.println(" - - - - - - - Verlagen");
     beep(1000, 50);  //frequentie, duur
@@ -113,10 +113,10 @@ void servoAansturing() {
   if (huidigeTijd - vorigeAanpassingTijd >= 500) {  // elke halve seconde kijken of aanpassing nodig is
     vorigeAanpassingTijd = huidigeTijd;
 
-    int fout = pulsDoel - gemetenPuls;
+    int fout = (pulsDoel - gemetenPuls)  * 1.1; // Hier mika FOUT. kan 0.9 , 1.0 , 1.1 zijn
 
-    if (abs(fout) > 1) {              //reageer niet op elke afwijking. Abs kijkt wat de waarde is tov 0
-      fout = constrain(fout, -3, 3);  // Maximaal  graden per aanpassing
+    if (abs(fout) > 0) {   // mika aanpas - AFWIJKING            //reageer niet op elke afwijking. Abs kijkt wat de waarde is tov 0
+      fout = constrain(fout, -5, 5);  // Maximaal  graden per aanpassing
       servoHoek += fout;
       servoHoek = constrain(servoHoek, 0, 179);  //
       mijnServo.write(servoHoek);

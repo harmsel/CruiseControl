@@ -1,16 +1,11 @@
-// Verbeterde Cruise Control voor auto met PID-regelaar
-// - Snellere respons door PID-logica en kortere meet-interval.
-// - Reageert proactief op veranderingen (heuvels) om snelheid stabieler te houden.
-// - Werkt nu vanaf 60 km/u zoals gevraagd.
-
 #include <Servo.h>
 
 // --- Constanten voor configuratie ---
 const int SERVO_MIN_HOEK = 10;      // Servohoek bij geen gas
-const int SERVO_MAX_HOEK = 170;     // Maximale servohoek (begrenzing)
-const int ACTIVATIE_PULS_MIN = 20;  // Minimale pulsen om CC te activeren (~60 km/u)
-const int DEACTIVATIE_PULS_MAX = 55;// Maximale pulsen (veiligheidsgrens)
-const long REGEL_INTERVAL = 100;    // Interval voor de PID-regelaar en pulsmeting in ms (was 500ms)
+const int SERVO_MAX_HOEK = 179;     // Maximale servohoek (begrenzing)
+const int ACTIVATIE_PULS_MIN = 10;  // Minimale pulsen om CC te activeren (~50 km/u bij 200ms interval)
+const int DEACTIVATIE_PULS_MAX = 25;// Maximale pulsen (veiligheidsgrens), per REGEL_INTERVAL
+const long REGEL_INTERVAL = 200;    // Probeer ook eens 100, Interval voor de PID-regelaar en pulsmeting in ms (was 500ms)
 
 // --- Servo ---
 Servo mijnServo;
@@ -43,8 +38,9 @@ const int ledPin = 11;
 // --- Remschakelaar ---
 const int remSchakelaar = 12;
 
-// --- Piezo Buzzer ---
+// --- Piezo Buzzer (Non-blocking) ---
 const int buzzerPin = 6;
+unsigned long beepEindTijd = 0; // Houdt bij wanneer de piep moet stoppen
 
 void setup() {
   Serial.begin(9600);
@@ -58,6 +54,9 @@ void setup() {
 }
 
 void loop() {
+  // --- Beheer van achtergrondtaken ---
+  handleBeep(); // Beheert het stoppen van de piep zonder delay()
+
   // Lees de knoppen en de sensor
   bool plusIngedrukt = digitalRead(plusKnop) == LOW;
   bool minIngedrukt = digitalRead(minKnop) == LOW;
@@ -111,52 +110,30 @@ void handmatigBijstellen(bool plusIngedrukt, bool minIngedrukt) {
       beep(1000, 50);
     }
   }
-  // Let op: we passen de servo niet meer direct aan. De PID-lus doet dit nu automatisch.
 }
 
-// ---------- NIEUWE PID SERVO AANSTURING ----------
 void pidAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
   if (huidigeTijd - vorigeAanpassingTijd >= REGEL_INTERVAL) {
     vorigeAanpassingTijd = huidigeTijd;
-
-    // 1. Bereken de fout (het verschil tussen doel en werkelijkheid)
     double fout = pulsDoel - gemetenPuls;
-
-    // 2. Bereken de integraal (som van fouten over tijd)
-    // Dit heft de constante fout op die je op een heuvel ziet.
     integraal += fout;
-    // Anti-windup: begrens de integraal om te voorkomen dat hij te groot wordt.
     integraal = constrain(integraal, -100, 100);
-
-    // 3. Bereken de afgeleide (de snelheid waarmee de fout verandert)
-    // Dit dempt de reactie en voorkomt dat de snelheid doorschiet.
     double afgeleide = fout - vorigeFout;
-
-    // 4. Bereken de totale aanpassing
     double aanpassing = (Kp * fout) + (Ki * integraal) + (Kd * afgeleide);
-
-    // 5. Pas de servohoek aan
-    // We tellen de aanpassing op bij de HUIDIGE hoek
     servoHoek += aanpassing;
-    servoHoek = constrain(servoHoek, SERVO_MIN_HOEK, SERVO_MAX_HOEK); // Begrens de servohoek
+    servoHoek = constrain(servoHoek, SERVO_MIN_HOEK, SERVO_MAX_HOEK);
     mijnServo.write(servoHoek);
-
-    // 6. Onthoud de huidige fout voor de volgende keer
     vorigeFout = fout;
-
-    // Debugging output
     Serial.print(" | Fout: "); Serial.print(fout);
-    Serial.print(" | Aanpassing: "); Serial.print(aanpassing, 2); // Toon met 2 decimalen
+    Serial.print(" | Aanpassing: "); Serial.print(aanpassing, 2);
     Serial.print(" | Nieuwe Servohoek: "); Serial.println(servoHoek);
   }
 }
 
-// ---------- SNELLERE PULS DETECTIE ----------
 void pulsDetectie() {
-  // Leest de sensor. Dit deel is onveranderd.
   int sensorValue = analogRead(A0);
   if (sensorValue > 550) {
     if (!pulsDetected) {
@@ -166,34 +143,48 @@ void pulsDetectie() {
   } else {
     pulsDetected = false;
   }
-
-  // Meetinterval is nu veel korter voor een snellere update van de snelheid.
   unsigned long currentTime = millis();
   if (currentTime - lastTime >= REGEL_INTERVAL) {
     gemetenPuls = pulsCounter;
     pulsCounter = 0;
     lastTime = currentTime;
-
-    // Verplaatst de seriële output hierheen om de loop schoner te houden
     Serial.print("Puls Doel: "); Serial.print(pulsDoel);
     Serial.print(" | Puls Huidig: "); Serial.print(gemetenPuls);
   }
 }
 
-// ---------- REM FUNCTIE ----------
 void remFunctie() {
   if (digitalRead(remSchakelaar) == HIGH) {
     ccActief = false;
     pulsDoel = 0;
-    integraal = 0; // Reset ook de integraal bij remmen
-    servoHoek = SERVO_MIN_HOEK; // Zet servo direct naar ruststand
+    integraal = 0;
+    servoHoek = SERVO_MIN_HOEK;
     mijnServo.write(servoHoek);
     Serial.println("!!!!!! CC Gedeactiveerd door rem !!!!!");
     beep(800, 300);
   }
 }
 
-// ---------- HULP FUNCTIES (onveranderd) ----------
+// ---------- HULP FUNCTIES ----------
+
+// Beheert het stoppen van de piep zonder delay()
+void handleBeep() {
+  // Als er een piep actief is (eindtijd is gezet) en de huidige tijd is voorbij de eindtijd
+  if (beepEindTijd > 0 && millis() >= beepEindTijd) {
+    noTone(buzzerPin); // Stop de toon
+    beepEindTijd = 0;  // Reset de timer, zodat een nieuwe piep kan starten
+  }
+}
+
+// Start een piep 
+void beep(int frequency, int duration) {
+  // Start alleen een nieuwe piep als er niet al een speelt
+  if (beepEindTijd == 0) {
+    tone(buzzerPin, frequency); // Start de toon (zonder duur-parameter)
+    beepEindTijd = millis() + duration; // Stel in wanneer de toon moet stoppen
+  }
+}
+
 void fadeLed(int fadeInterval) {
   static int helderheid = 0;
   static int fadeRichting = 1;
@@ -207,8 +198,4 @@ void fadeLed(int fadeInterval) {
     }
     analogWrite(ledPin, helderheid);
   }
-}
-
-void beep(int frequency, int duration) {
-  tone(buzzerPin, frequency, duration);
 }

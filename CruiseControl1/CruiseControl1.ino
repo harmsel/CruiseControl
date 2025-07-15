@@ -1,46 +1,40 @@
+// 19 pulsen / 200 ms = 91
+// 
+
 #include <Servo.h>
 
-// --- Constanten voor configuratie ---
-const int SERVO_MIN_HOEK = 10;      // Servohoek bij geen gas
-const int SERVO_MAX_HOEK = 179;     // Maximale servohoek (begrenzing)
-const int ACTIVATIE_PULS_MIN = 10;  // Minimale pulsen om CC te activeren (~50 km/u bij 200ms interval)
-const int DEACTIVATIE_PULS_MAX = 25;// Maximale pulsen (veiligheidsgrens), per REGEL_INTERVAL
-const long REGEL_INTERVAL = 200;    // Probeer ook eens 100, Interval voor de PID-regelaar en pulsmeting in ms (was 500ms)
-
-// --- Servo ---
+// --- Servo
 Servo mijnServo;
-int servoHoek = SERVO_MIN_HOEK;
+int servoHoek = 10;
 
-// --- Pulsmeting ---
-volatile unsigned int pulsCounter = 0; // 'volatile' omdat deze in een ISR gebruikt kan worden (optioneel, maar goede praktijk)
+// --- Pulsmeting
+unsigned int pulsCounter = 0;
 int gemetenPuls = 0;
 int pulsDoel = 0;
 bool pulsDetected = false;
 unsigned long lastTime = 0;
+int meetInterval = 200;
 
-// --- PID Regelaar Variabelen ---
-double Kp = 2.5;  // Proportionele gain: Bepaalt de reactie op de HUIDIGE fout. Startpunt: 2.5
-double Ki = 0.08; // Integrale gain: Elimineert fouten over TIJD (bv. op een helling). Startpunt: 0.08
-double Kd = 0.7;  // Derivatieve gain: Voorspelt TOEKOMSTIGE fouten en dempt de reactie. Startpunt: 0.7
-
-double integraal = 0;
-double vorigeFout = 0;
-
-// --- Knopjes ---
+// --- Knopjes
 const int plusKnop = 10;
 const int minKnop = 9;
 bool ccActief = false;
 unsigned long ingedruktSinds = 0;
+bool plusIngedrukt = 0;
+bool minIngedrukt = 0;
 
-// --- LED ---
-const int ledPin = 11;
 
-// --- Remschakelaar ---
-const int remSchakelaar = 12;
 
-// --- Piezo Buzzer (Non-blocking) ---
+// --- LED
+int ledPin = 11;
+
+
+// --- Remschakelaar
+int remSchakelaar = 12;
+
+// --- piezo
 const int buzzerPin = 6;
-unsigned long beepEindTijd = 0; // Houdt bij wanneer de piep moet stoppen
+int eersteKeerActief = true;
 
 void setup() {
   Serial.begin(9600);
@@ -50,92 +44,96 @@ void setup() {
   pinMode(remSchakelaar, INPUT_PULLUP);
   mijnServo.attach(2);
   mijnServo.write(servoHoek);
-  Serial.println("Cruise Control Systeem Gestart");
 }
 
 void loop() {
-  // --- Beheer van achtergrondtaken ---
-  handleBeep(); // Beheert het stoppen van de piep zonder delay()
+  plusIngedrukt = digitalRead(plusKnop) == LOW;
+  minIngedrukt = digitalRead(minKnop) == LOW;
 
-  // Lees de knoppen en de sensor
-  bool plusIngedrukt = digitalRead(plusKnop) == LOW;
-  bool minIngedrukt = digitalRead(minKnop) == LOW;
-  pulsDetectie(); // Meet de snelheid
-
-  // Cruise control activeren
-  if (plusIngedrukt && (gemetenPuls > ACTIVATIE_PULS_MIN && gemetenPuls < DEACTIVATIE_PULS_MAX)) {
+  if (plusIngedrukt && (gemetenPuls > 3 && gemetenPuls < 25)) {  //> 30km om te voorkomen dat hij per ongeluk aangaat, bovenwaarde als de sensor raar gaat doen
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
     } else if ((millis() - ingedruktSinds >= 1000) && (!ccActief)) {
       ccActief = true;
-      pulsDoel = gemetenPuls; // Stel huidige snelheid in als doel
-      integraal = 0;         // Reset PID-variabelen bij activatie
-      vorigeFout = 0;
-      Serial.println("!!!!!! CC Geactiveerd !!!!!");
-      Serial.print("Doel snelheid (pulsen): ");
-      Serial.println(pulsDoel);
-      beep(2000, 200);
+      Serial.println("  !!!!!! !!!!! CC Geactiveerd. Pulsdoel = gemetenPuls !!!!! ");
+      pulsDoel = gemetenPuls;
+      servoHoek = 140;
+      mijnServo.write(servoHoek);
+      beep(2000, 200);  //frequentie, duur
     }
-  } else if (!plusIngedrukt) {
+  } else {
     ingedruktSinds = 0;
   }
 
-  // Als de cruise control actief is
-  if (ccActief) {
+  if (ccActief) {  // alleen aan vanaf 30 km/h en tot 110 km/h
     fadeLed(5);
-    handmatigBijstellen(plusIngedrukt, minIngedrukt);
-    pidAansturing(); // Gebruik de nieuwe PID-regelaar
+    handmatigBijstellen();
+    servoAansturing();
     remFunctie();
-  } else {
-    digitalWrite(ledPin, LOW); // Zet LED uit als CC inactief is
+  }
+
+  pulsDetectie();
+}
+
+void handmatigBijstellen() {
+  static unsigned long vorigePlusTijd = 0;  // Met 'static' wordt vorigePlusTijd alleen bij de eerste aanroep 0
+  static unsigned long vorigeMinTijd = 0;
+
+  // Plusknop ingedrukt → verhogen
+  unsigned long nu = millis();
+
+  // Plusknop ingedrukt → verhogen
+  if (plusIngedrukt && nu - vorigePlusTijd >= 500) {  // getal is de wachttijd tussen de plussen
+    pulsDoel += 1;
+    servoHoek += 4;  // was eerder 3
+    mijnServo.write(servoHoek);
+    Serial.println("+ + + + + + + Verhogen ");
+    beep(1000, 50);  //frequentie, duur
+    vorigePlusTijd = nu;
+  }
+
+  // Minknop ingedrukt → verlagen
+  if (minIngedrukt && nu - vorigeMinTijd >= 500) {
+    pulsDoel -= 1;
+    servoHoek -= 4;  // was eerder 3
+    mijnServo.write(servoHoek);
+    Serial.println(" - - - - - - - Verlagen");
+    beep(1000, 50);  //frequentie, duur
+    vorigeMinTijd = nu;
   }
 }
 
-void handmatigBijstellen(bool plusIngedrukt, bool minIngedrukt) {
-  static unsigned long vorigeKnopTijd = 0;
-  unsigned long nu = millis();
 
-  if (nu - vorigeKnopTijd >= 250) { // Wachttijd tussen aanpassingen
-    if (plusIngedrukt) {
-      pulsDoel += 1; // Verhoog het doel met 1 km/u (equivalent)
-      vorigeKnopTijd = nu;
-      Serial.print("+ Verhogen. Nieuw doel: ");
-      Serial.println(pulsDoel);
-      beep(1000, 50);
-    } else if (minIngedrukt) {
-      pulsDoel -= 1; // Verlaag het doel
-      vorigeKnopTijd = nu;
-      Serial.print("- Verlagen. Nieuw doel: ");
-      Serial.println(pulsDoel);
-      beep(1000, 50);
+
+
+
+// ---------- SERVO AANSTURING ----------
+void servoAansturing() {
+  static unsigned long vorigeAanpassingTijd = 0;
+  unsigned long huidigeTijd = millis();
+
+  if (huidigeTijd - vorigeAanpassingTijd >= meetInterval) {  // zo vaak kijkt hij of een correctie nodig is
+    vorigeAanpassingTijd = huidigeTijd;
+
+    int fout = (pulsDoel - gemetenPuls) * 1;  // Hier mika FOUT. kan 0.9 , 1.0 , 1.1 zijn
+
+    if (abs(fout) > 0) {          //Hoe snel mag hij reageren. Abs kijkt wat de waarde is tov 0
+      fout = constrain(fout, -5, 5);  // Maximaal  graden per aanpassing
+      servoHoek += fout;
+      servoHoek = constrain(servoHoek, 0, 179);  //
+      mijnServo.write(servoHoek);
+      Serial.print(" | servoHoek: ");      Serial.print(servoHoek);
     }
   }
 }
 
-void pidAansturing() {
-  static unsigned long vorigeAanpassingTijd = 0;
-  unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= REGEL_INTERVAL) {
-    vorigeAanpassingTijd = huidigeTijd;
-    double fout = pulsDoel - gemetenPuls;
-    integraal += fout;
-    integraal = constrain(integraal, -100, 100);
-    double afgeleide = fout - vorigeFout;
-    double aanpassing = (Kp * fout) + (Ki * integraal) + (Kd * afgeleide);
-    servoHoek += aanpassing;
-    servoHoek = constrain(servoHoek, SERVO_MIN_HOEK, SERVO_MAX_HOEK);
-    mijnServo.write(servoHoek);
-    vorigeFout = fout;
-    Serial.print(" | Fout: "); Serial.print(fout);
-    Serial.print(" | Aanpassing: "); Serial.print(aanpassing, 2);
-    Serial.print(" | Nieuwe Servohoek: "); Serial.println(servoHoek);
-  }
-}
 
+
+// ---------- PULS DETECTIE ----------
 void pulsDetectie() {
   int sensorValue = analogRead(A0);
-  if (sensorValue > 550) {
+  if (sensorValue > 550) {  //de treshold op 550 zetten, anders meet hij te weinig pulsn of te veel
     if (!pulsDetected) {
       pulsCounter++;
       pulsDetected = true;
@@ -143,59 +141,52 @@ void pulsDetectie() {
   } else {
     pulsDetected = false;
   }
+
   unsigned long currentTime = millis();
-  if (currentTime - lastTime >= REGEL_INTERVAL) {
+  if (currentTime - lastTime >= meetInterval) {  // waarde is de duur van de meting
+    Serial.print(" | puls DOEL: ");
+    Serial.print(pulsDoel);
+    Serial.print("  | Pulse Huidig: ");
+    Serial.println(pulsCounter);
+
     gemetenPuls = pulsCounter;
     pulsCounter = 0;
     lastTime = currentTime;
-    Serial.print("Puls Doel: "); Serial.print(pulsDoel);
-    Serial.print(" | Puls Huidig: "); Serial.print(gemetenPuls);
   }
 }
 
-void remFunctie() {
-  if (digitalRead(remSchakelaar) == HIGH) {
-    ccActief = false;
-    pulsDoel = 0;
-    integraal = 0;
-    servoHoek = SERVO_MIN_HOEK;
-    mijnServo.write(servoHoek);
-    Serial.println("!!!!!! CC Gedeactiveerd door rem !!!!!");
-    beep(800, 300);
-  }
-}
-
-// ---------- HULP FUNCTIES ----------
-
-// Beheert het stoppen van de piep zonder delay()
-void handleBeep() {
-  // Als er een piep actief is (eindtijd is gezet) en de huidige tijd is voorbij de eindtijd
-  if (beepEindTijd > 0 && millis() >= beepEindTijd) {
-    noTone(buzzerPin); // Stop de toon
-    beepEindTijd = 0;  // Reset de timer, zodat een nieuwe piep kan starten
-  }
-}
-
-// Start een piep 
-void beep(int frequency, int duration) {
-  // Start alleen een nieuwe piep als er niet al een speelt
-  if (beepEindTijd == 0) {
-    tone(buzzerPin, frequency); // Start de toon (zonder duur-parameter)
-    beepEindTijd = millis() + duration; // Stel in wanneer de toon moet stoppen
-  }
-}
-
+// ---------- LED FADE ----------
 void fadeLed(int fadeInterval) {
   static int helderheid = 0;
   static int fadeRichting = 1;
-  static unsigned long vorigeFadeTijd = 0;
+  static unsigned long vorigeFadeTijd = 0;  // Deze moet ook static zijn
+
   unsigned long huidigeTijd = millis();
+
   if (huidigeTijd - vorigeFadeTijd >= fadeInterval) {
     vorigeFadeTijd = huidigeTijd;
+
     helderheid += fadeRichting;
     if (helderheid <= 0 || helderheid >= 255) {
       fadeRichting = -fadeRichting;
     }
     analogWrite(ledPin, helderheid);
+  }
+}
+
+// ---------- PIEZO BEEP ----------
+void beep(int frequency, int duration) {
+  tone(buzzerPin, frequency);
+  delay(duration);
+  noTone(buzzerPin);
+}
+
+// ---------- REM FUNCTIE ----------
+void remFunctie() {
+  if (digitalRead(remSchakelaar) == HIGH) {
+
+    mijnServo.write(10);
+    pulsDoel = 0;
+    ccActief = false;
   }
 }

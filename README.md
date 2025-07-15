@@ -1,4 +1,4 @@
-# Cruise controll
+# Cruise control
 Hoe maak ik op basis van standaard onderdelen een cruise control voor mijn oude VW bus?
 
 

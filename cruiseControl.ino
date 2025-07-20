@@ -69,7 +69,7 @@ void loop() {
       Serial.println("!!!!!! !!!!! CC Geactiveerd. !!!!! ");
       pulsDoel = gemetenPuls;
 
-      servoHoek = map(gemetenPuls, 70, 110, 130, 170);  //servohoek is nu 142 bij 90 Pulsen p/s
+      servoHoek = map(gemetenPuls, 90, 110, 142, 175);  //servohoek is nu 142 bij 90 Pulsen p/s
       mijnServo.write(servoHoek);                       //servohoek 145 is ontgeveer 90km/h
 
       beep(3000, 300);  //frequentie, duur
@@ -82,7 +82,7 @@ void loop() {
   // Als cruise control actief is
   if (ccActief) {
     remFunctie();
-    fadeLed(5);
+    fadeLed(2);
     servoAansturing();
     handmatigBijstellen();
   }
@@ -134,7 +134,7 @@ void servoAansturing() {
     }
 
     // als de auto 9 km langzamer gaat dan het pulsdoel, dan stopt de cc
-    if (pulsDoel > gemetenPuls + 8) {
+    if (gemetenPuls <= pulsDoel - 8) {
       Serial.println("Nu de cc er uit laten klappen");
     }
   }
@@ -209,6 +209,6 @@ void remFunctie() {
     mijnServo.write(10);
     pulsDoel = 0;
     ccActief = false;
-    beep(4000, 200);  //frequentie, duur
+    beep(4000, 400);  //frequentie, duur
   }
 }

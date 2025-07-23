@@ -5,10 +5,16 @@
 #include <Servo.h>
 
 // AAANPASSINGEN OM DE REGELING RUSTIGER TE MAKEN
-const float correctieVertraging = 0.7;  // fout X correctieVertraging = servoverdraaing, hor lager het getal des te trager de correctie per servoInterval
-const int meetInterval = 1000;          // zoveel tijd de pulsen tellen, hoger getal is tragere meting, maar naukeuriger
-const int servoInterval = 1000;         // elke interval gaat de servo mogelijk verdraaien
-const int hysteresis = 0;               // Als pulsMeting +1 of -1  groter dan  de histeresis, dan corrigeren, bij interval van 1000 en een inteval van 0 zit er dus max 2km verschil tussen de snelheid en de gewenste snelheid
+// 0.7 werkte goed, maar bij 94 pulsen bleef het heen een weer gaan // 1.2 is te extreem
+const float correctieVersnellen = 0.6;  // als de snelheid te LAAG is dit de factor. fout X correctieVertraging = servoverdraaing, hoe lager het getal des te trager de correctie per servoInterval
+
+// 1.2 werkt best goed ook in de bergen
+const float correctieVertragen = 1.3;  // als de snelheid te hoog is is dit de snelheid van correctie
+const int hysteresis = 0;              // Als pulsMeting +1 of -1  groter dan  de histeresis, dan corrigeren, bij interval van 1000 en een inteval van 0 zit er dus max 2km verschil tussen de snelheid en de gewenste snelheid
+
+
+const int meetInterval = 1000;   // zoveel tijd de pulsen tellen, hoger getal is tragere meting, maar naukeuriger
+const int servoInterval = 1000;  // elke interval gaat de servo mogelijk verdraaien
 
 // --- Servo
 Servo mijnServo;
@@ -17,7 +23,7 @@ int servoHoek = 2;
 
 // --- Pulsmeting
 unsigned int pulsCounter = 0;
-int gemetenPuls = 0;
+int gemetenPuls = 0;  // het aantal pulsen per meetInterval
 int pulsDoel = 0;
 bool pulsDetected = false;
 unsigned long lastTime = 0;
@@ -65,11 +71,11 @@ void loop() {
   if (plusIngedrukt) {
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
-    } else if ((millis() - ingedruktSinds >= 1000) && (!ccActief)) {
-      Serial.println("!!!!!! !!!!! CC Geactiveerd. !!!!! ");
+    } else if ((millis() - ingedruktSinds >= 1000) && !ccActief && gemetenPuls > 60) {
+      Serial.println(" ~~~~~~~~. mika help!  hij is CC Geactiveerd. <3 :-)  ");
       pulsDoel = gemetenPuls;
 
-      servoHoek = map(gemetenPuls, 90, 110, 142, 175);  //servohoek is nu 142 bij 90 Pulsen p/s
+      servoHoek = map(gemetenPuls, 80, 110, 126, 175);  //servohoek is nu 142 bij 90 Pulsen p/s
       mijnServo.write(servoHoek);                       //servohoek 145 is ontgeveer 90km/h
 
       beep(3000, 300);  //frequentie, duur
@@ -90,43 +96,23 @@ void loop() {
   pulsDetectie();
 }
 
-// --------------------------------     HANDMATIG BIJSTELLEN MET PLUS EN MIN -------------
-void handmatigBijstellen() {
-  static unsigned long vorigePlusTijd = 0;  // Met 'static' wordt vorigePlusTijd alleen bij de eerste aanroep 0
-  static unsigned long vorigeMinTijd = 0;
-
-  // Plusknop ingedrukt → verhogen
-  if (plusIngedrukt && (millis() - vorigePlusTijd >= PlusMinTijd) && (millis() - ingedruktSinds < 1000)) {  //laaste deel is om te voorkomen dat bij het inschakelen geljk een verhoging doorkomt
-    pulsDoel += 1;
-    pulsDoel = constrain(pulsDoel, 0, 120);  //voorkom dat pulsdoel negatief kan worden
-    Serial.println("+ + + + + + + Verhogen ");
-    beep(1000, 50);             //frequentie, duur
-    vorigePlusTijd = millis();  // de timer weer naar huidige millis zetten
-  }
-
-  // Minknop ingedrukt → verlagen
-  if (minIngedrukt && millis() - vorigeMinTijd >= PlusMinTijd) {
-
-    pulsDoel -= 1;
-    pulsDoel = constrain(pulsDoel, 0, 120);  //voorkom dat pulsdoel negatief kan worden
-    Serial.println(" - - - - - - - Verlagen");
-    beep(1000, 50);  //frequentie, duur
-    vorigeMinTijd = millis();
-  }
-}
 
 
+
+// ---------- SERVO AANSTURING -------------------------------------------------------------
+// ---------- SERVO AANSTURING -------------------------------------------------------------
 // ---------- SERVO AANSTURING -------------------------------------------------------------
 void servoAansturing() {
   static unsigned long vorigeAanpassingTijd = 0;
   unsigned long huidigeTijd = millis();
 
-  if (huidigeTijd - vorigeAanpassingTijd >= servoInterval) {  // zo vaak kijkt hij of een correctie nodig is
+  if (huidigeTijd - vorigeAanpassingTijd >= servoInterval) {
     vorigeAanpassingTijd = huidigeTijd;
     int fout = pulsDoel - gemetenPuls;
 
-    if (abs(fout) > hysteresis) {  //Hoe snel mag hij reageren. KLeiner getal is meer correcties. Abs kijkt wat de waarde is tov 0
-      servoHoek += (fout * correctieVertraging);
+    if (abs(fout) > hysteresis) {
+      float correctie = fout > 0 ? correctieVersnellen : correctieVertragen; // bij te hoge snelheid gebruikt hij correctievertragen anders correctieversnelllen
+      servoHoek += fout * correctie;
       servoHoek = constrain(servoHoek, 0, 179);
       mijnServo.write(servoHoek);
       Serial.print(" | servoHoek: ");
@@ -136,9 +122,54 @@ void servoAansturing() {
     // als de auto 9 km langzamer gaat dan het pulsdoel, dan stopt de cc
     if (gemetenPuls <= pulsDoel - 8) {
       Serial.println("Nu de cc er uit laten klappen");
+      ccActief = false;
+      beep(5000, 300);  //frequentie, duur
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+// --------------------------------     HANDMATIG BIJSTELLEN MET PLUS EN MIN -------------
+void handmatigBijstellen() {
+  static unsigned long vorigePlusTijd = 0;  // Met 'static' wordt vorigePlusTijd alleen bij de eerste aanroep 0
+  static unsigned long vorigeMinTijd = 0;
+
+  // Plusknop ingedrukt → verhogen
+  if (plusIngedrukt && (millis() - vorigePlusTijd >= PlusMinTijd) && (millis() - ingedruktSinds < 1000)) {  //laaste deel is om te voorkomen dat bij het inschakelen geljk een verhoging doorkomt
+    pulsDoel += 1;
+    servoHoek += 3;  //gelijk bijstellen
+    mijnServo.write(servoHoek);
+
+    pulsDoel = constrain(pulsDoel, 0, 110);  //voorkom dat pulsdoel negatief kan worden
+    Serial.println("+ + + + + + + Verhogen ");
+    beep(1000, 50);             //frequentie, duur
+    vorigePlusTijd = millis();  // de timer weer naar huidige millis zetten
+  }
+
+  // Minknop ingedrukt → verlagen
+  if (minIngedrukt && millis() - vorigeMinTijd >= PlusMinTijd) {
+    pulsDoel -= 1;
+
+    servoHoek -= 4;  //gelijk bijstellen
+    mijnServo.write(servoHoek);
+
+
+
+    pulsDoel = constrain(pulsDoel, 0, 120);  //voorkom dat pulsdoel negatief kan worden
+    Serial.println(" - - - - - - - Verlagen");
+    beep(1000, 50);  //frequentie, duur
+    vorigeMinTijd = millis();
+  }
+}
+
 
 // --------------------------- PULS DETECTIE ----------------------------------------------
 void pulsDetectie() {
@@ -153,10 +184,10 @@ void pulsDetectie() {
   }
 
   if (millis() - lastTime >= meetInterval) {  // waarde is de duur van de meting
-    Serial.print(" || PULS DOEL: ");
+    Serial.print(" || DOEL: ");
     Serial.print(pulsDoel);
 
-    Serial.print("  | Pulse Huidig: ");
+    Serial.print("    | HUIDIG: ");
     Serial.println(pulsCounter);
 
     gemetenPuls = pulsCounter;
@@ -210,5 +241,7 @@ void remFunctie() {
     pulsDoel = 0;
     ccActief = false;
     beep(4000, 400);  //frequentie, duur
+
+    Serial.println(" HELP de Cruise Control is GEDEACTIVEEEEEEEEERD");
   }
 }

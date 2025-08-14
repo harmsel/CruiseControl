@@ -6,7 +6,7 @@
 
 // AAANPASSINGEN OM DE REGELING RUSTIGER TE MAKEN
 // 0.7 werkte goed, maar bij 94 pulsen bleef het heen een weer gaan // 1.2 is te extreem
-const float correctieVersnellen = 0.6;  // als de snelheid te LAAG is dit de factor. fout X correctieVertraging = servoverdraaing, hoe lager het getal des te trager de correctie per servoInterval
+const float correctieVersnellen = 0.8;  // als de snelheid te LAAG is dit de factor. fout X correctieVertraging = servoverdraaing, hoe lager het getal des te trager de correctie per servoInterval
 
 // 1.2 werkt best goed ook in de bergen
 const float correctieVertragen = 1.3;  // als de snelheid te hoog is is dit de snelheid van correctie
@@ -78,7 +78,7 @@ void loop() {
       servoHoek = map(gemetenPuls, 80, 110, 126, 175);  //servohoek is nu 142 bij 90 Pulsen p/s
       mijnServo.write(servoHoek);                       //servohoek 145 is ontgeveer 90km/h
 
-      beep(3000, 300);  //frequentie, duur
+      beep(3000, 100);  //frequentie, duur
       ccActief = true;
     }
   } else {
@@ -119,11 +119,13 @@ void servoAansturing() {
       Serial.print(servoHoek);
     }
 
-    // als de auto 9 km langzamer gaat dan het pulsdoel, dan stopt de cc
-    if (gemetenPuls <= pulsDoel - 9) {
+    // CC ER UIT LATEN KLAPPEN --- als de auto 9 km langzamer gaat dan het pulsdoel, dan stopt de cc
+    if (gemetenPuls <= pulsDoel - 10) {
       Serial.println("Nu de cc er uit laten klappen");
       beep(5000, 1000);  //frequentie, duur
-      delay(1000);
+      delay(1000);       //pas na het piepen van het gas af
+      pulsDoel = 0;
+      mijnServo.write(1);
       ccActief = false;
     }
   }
@@ -241,7 +243,7 @@ void remFunctie() {
     mijnServo.write(10);
     pulsDoel = 0;
     ccActief = false;
-    beep(4000, 400);  //frequentie, duur
+    beep(2000, 200);  //frequentie, duur
 
     Serial.println(" HELP de Cruise Control is GEDEACTIVEEEEEEEEERD");
   }

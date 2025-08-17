@@ -30,7 +30,7 @@ Ik meet de sneheid met een pickup spoel die dicht bij de draaiende magneet op de
 
 Als je de rem of koppeling indruk zal zal de waarde op de betreffende pin van GND naar Hoog gaan (door de interne pullup weerstand van de arduino)
 
-Aansluitschema
+### Aansluitschema
 ![](images/Aansluitschema.jpg)
 
 Gebruikte stekker

@@ -1,8 +1,23 @@
 # Cruise control
-Hoe maak ik op basis van standaard onderdelen een cruise control voor mijn oude VW bus?
+Hoe maak ik op basis van standaard onderdelen een cruise control voor mijn oude VW bus? 
+* ik heb een servo gevonden die sterk genoeg is om mijn gasschuif te bedienen maar wel vanzelf terug gaat als ik de stroom van het stysteem haal (dat is de veiligheids noodknop).
+* Hier heb ik in in Fusion (3d software) een behuizing en onderdelen voor ontworpen
+* Deze op een 3d printer in PETG uitgeprint (ivm warmte geen PLA)
+* Code geschreven voor de arduino
+  
+### Benodigdheden
 
+* Arduino Micro (Micro Pro kan ook) - de Micro heeft een goede spanningsregelaar, handig voor in de auto (met max 15 v input)
+* 40k/cm 9imod Borstelloze Servo
+* Spanningsregelaar 3A - 14V -> 6V 12V naar 6V Converter Auto Power Buck Converter Spanningsregelaar 3A 18 W 
+* versnellingskabel fiets (bij je fietsenmaker)
+* gastonnetje, https://www.bromfietsshop.nl/nippel-schroef-6x14mm-html.html
+* Pick-up spoel (hall sensor is volgens mij beter) https://nl.aliexpress.com/item/1005009333531538.html
+* Twee knopjes op je richtingaanwijzer/dashboard met LEDJE
+* Piezo buzzer voor de piepjes
+* weerstanden om de spanningdeler te maken (zie bedradingsschema)
 
-3D render van de cruisecontrol
+### 3D render van de cruisecontrol
 ![](images/3Drender1.jpg)
 
 
@@ -21,18 +36,7 @@ Aansluitschema
 Gebruikte stekker
 ![](images/stekker.jpg)
 
-### Benodigdheden
 
-* Arduino Micro (Micro Pro kan ook)
-* 40k/cm 9imod Borstelloze Servo
-* Spanningsregelaar 3A - 14V -> 6V 12V naar 6V Converter Auto Power Buck Converter Spanningsregelaar 3A 18 W 
-* versnellingskabel fiets (bij je fietsenmaker)
-* gastonnetje, https://www.bromfietsshop.nl/nippel-schroef-6x14mm-html.html
-* 
-* Pick-up spoel (hall sensor is volgens mij beter) https://nl.aliexpress.com/item/1005009333531538.html
-
-* Twee knopjes op je richtingaanwijzer/dashboard met LEDJE
-* weerstanden om de spanningdeler te maken (zie bedradingsschema)
 
 Foto, als het kapje er af is
 ![](images/ccFoto.jpg)

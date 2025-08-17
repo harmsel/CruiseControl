@@ -18,6 +18,7 @@ Hoe maak ik op basis van standaard onderdelen een cruise control voor mijn oude 
 * weerstanden om de spanningdeler te maken (zie bedradingsschema)
 
 ### 3D render van de cruisecontrol
+wil je deze files? stuur mij een bericht dan krijg je de .stl of Fusion FIles
 ![](images/3Drender1.jpg)
 
 

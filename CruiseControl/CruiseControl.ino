@@ -8,9 +8,9 @@ const float PULS_PER_KMH_FACTOR = 1.0;
 const float SPEED_FILTER_ALPHA = 0.25;
 
 const int HYSTERESIS_PULS = 2;
-const unsigned long SERVO_INTERVAL_MS = 200;
+const unsigned long SERVO_INTERVAL_MS = 200; /// zo vaak gaat de servo corrigeren
 
-const float SERVO_STEP_MAX = 2.0;
+const float SERVO_STEP_MAX = 2.0; //verdraaiing van de servo per keer
 
 const int PLUSMIN_STEP_PULSES = 1;
 const unsigned long PLUSMIN_HOLD_MS = 400;

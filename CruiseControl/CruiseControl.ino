@@ -1,226 +1,272 @@
-```cpp
 #include <Servo.h>
 
 // =====================================================
-// 🔧 TUNING (HIER MEE SPELEN IN DE PRAKTIJK)
+// CRUISE CONTROL - TUNING
 // =====================================================
 
-// --- PID regeling ---
-float Kp = 0.6;   // ↑ hoger = sneller reageren, ↓ lager = rustiger
-float Ki = 0.04;  // ↑ hoger = meer kracht op heuvel, ↓ lager = minder "duwen"
-float Kd = 0.9;   // ↑ hoger = minder overshoot, ↓ lager = sneller maar instabiel
+const float PULS_PER_KMH_FACTOR = 1.0;
+const float SPEED_FILTER_ALPHA = 0.25;
 
-// --- HELLING VOORSPELLING ---
-float Ks = 1.5;   // ↑ hoger = eerder reageren op heuvel, ↓ lager = rustiger
+const int HYSTERESIS_PULS = 2;
+const unsigned long SERVO_INTERVAL_MS = 200;
 
-// --- STABILITEIT ---
-const int hysteresis = 1;  // ↑ hoger = minder trillen, ↓ lager = preciezer
+const float SERVO_STEP_MAX = 2.0;
 
-// --- SNELHEID VAN REGELING ---
-const int servoInterval = 120;  // ms → lager = sneller reageren
+const int PLUSMIN_STEP_PULSES = 1;
+const unsigned long PLUSMIN_HOLD_MS = 400;
 
-// --- SENSOR ---
-const int threshold = 550;  // ⚠️ AFSTELLEN! midden tussen hoog/laag signaal
+const unsigned long PULSE_TIMEOUT_US = 500000;
+const unsigned long DEBUG_INTERVAL_MS = 2000;
+
+const int SERVO_SAFE = 10;
+
+// 🔥 soft-start
+const unsigned long SOFTSTART_MS = 1500;
 
 
 // =====================================================
-// ⚙️ NIET AANPASSEN (tenzij je weet wat je doet)
+// HARDWARE
 // =====================================================
 
 Servo mijnServo;
-int servoHoek = 2;
+const int servoPin = 2;
 
-// pulsmeting (tijd tussen pulsen)
-unsigned long laatstePulsTijd = 0;
-unsigned long pulsInterval = 0;
-bool vorigeStatus = false;
-
-// snelheid
-float gemetenSnelheid = 0;
-float gefilterdeSnelheid = 0;
-
-// helling detectie
-float slopeFactor = 0;
-float vorigeSnelheid = 0;
-
-// regeling
-float snelheidDoel = 0;
-bool ccActief = false;
-
-// PID geheugen
-float foutSom = 0;
-float vorigeFout = 0;
-
-// knoppen
 const int plusKnop = 10;
 const int minKnop = 9;
 const int remSchakelaar = 12;
-
-bool plusIngedrukt = 0;
-bool minIngedrukt = 0;
-unsigned long ingedruktSinds = 0;
-const int PlusMinTijd = 400;
-
-// buzzer
+const int ledPin = 11;
 const int buzzerPin = 6;
+const int sensorPin = A0;
+
+
+// =====================================================
+// VARIABELEN
+// =====================================================
+
+bool ccActief = false;
+int pulsDoel = 0;
+
+int servoHoek = 2;
+
+int vorigeSensorStatus = LOW;
+unsigned long laatstePulsTijd = 0;
+unsigned long pulsIntervalUs = 0;
+unsigned long vorigeGeldigePulsUs = 0;
+
+float gemetenSnelheid = 0.0;
+float gefilterdeSnelheid = 0.0;
+
+bool plusIngedrukt = false;
+bool minIngedrukt = false;
+unsigned long ingedruktSinds = 0;
+unsigned long vorigePlusTijd = 0;
+unsigned long vorigeMinTijd = 0;
+
 bool isBeeping = false;
 unsigned long beepStartTime = 0;
 unsigned long beepDuration = 0;
+
+unsigned long vorigeServoTijd = 0;
+unsigned long vorigeDebugTijd = 0;
+
+unsigned long ccStartTijd = 0;
+
+
+// =====================================================
+// 🔧 START SERVO BEREKENING (FEEDFORWARD)
+// =====================================================
+
+int berekenStartServo(float snelheid) {
+  int servo = (int)(snelheid * 1.0 + 60.0); // 80→140, 90→150
+  return constrain(servo, 0, 179);
+}
 
 
 // =====================================================
 // SETUP
 // =====================================================
+
 void setup() {
   Serial.begin(9600);
 
+  pinMode(ledPin, OUTPUT);
   pinMode(plusKnop, INPUT_PULLUP);
   pinMode(minKnop, INPUT_PULLUP);
   pinMode(remSchakelaar, INPUT_PULLUP);
+  pinMode(buzzerPin, OUTPUT);
 
-  mijnServo.attach(2);
+  mijnServo.attach(servoPin);
   mijnServo.write(servoHoek);
+
+  Serial.println(F("Cruise control gestart"));
 }
 
 
 // =====================================================
 // LOOP
 // =====================================================
-void loop() {
 
-  plusIngedrukt = digitalRead(plusKnop) == LOW;
-  minIngedrukt = digitalRead(minKnop) == LOW;
+void loop() {
+  plusIngedrukt = (digitalRead(plusKnop) == LOW);
+  minIngedrukt = (digitalRead(minKnop) == LOW);
 
   handleBeep();
-
-  meetPulsen();        // 🔥 moet altijd snel blijven lopen!
+  pulsDetectie();
   snelheidBerekenen();
 
-  // ---------- CRUISE CONTROL AAN ----------
+  // ---------------------------------------------------
+  // CC ACTIVEREN
+  // ---------------------------------------------------
   if (plusIngedrukt) {
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
     } 
     else if ((millis() - ingedruktSinds >= 1000) && !ccActief && gefilterdeSnelheid > 30) {
 
-      snelheidDoel = gefilterdeSnelheid;
+      pulsDoel = (int)round(gefilterdeSnelheid + 1);
+
+      // 🔥 FEEDFORWARD STARTPOSITIE
+      servoHoek = berekenStartServo(gefilterdeSnelheid);
+      mijnServo.write(servoHoek);
+
       ccActief = true;
+      ccStartTijd = millis();
+
       beep(3000, 100);
+      Serial.println(F("CC geactiveerd"));
     }
   } else {
     ingedruktSinds = 0;
   }
 
-  // ---------- ACTIEVE CC ----------
+  // ---------------------------------------------------
+  // ACTIEVE CRUISE CONTROL
+  // ---------------------------------------------------
   if (ccActief) {
-    servoAansturing();
     remFunctie();
+    fadeLed(2);
+    servoAansturing();
     handmatigBijstellen();
+  }
+
+  // ---------------------------------------------------
+  // DEBUG
+  // ---------------------------------------------------
+  if (millis() - vorigeDebugTijd >= DEBUG_INTERVAL_MS) {
+    vorigeDebugTijd = millis();
+
+    Serial.print(F("pulsDoel="));
+    Serial.print(pulsDoel);
+
+    Serial.print(F("  snelheid="));
+    Serial.print(gefilterdeSnelheid, 2);
+
+    Serial.print(F("  servo="));
+    Serial.print(servoHoek);
+
+    Serial.print(F("  cc="));
+    Serial.println(ccActief ? F("AAN") : F("UIT"));
   }
 }
 
 
 // =====================================================
-// 🔥 PULS DETECTIE (ANALOOG)
+// PULS DETECTIE
 // =====================================================
-void meetPulsen() {
-  int sensorValue = analogRead(A0);
 
-  bool huidigeStatus = sensorValue > threshold;
+void pulsDetectie() {
+  int sensorValue = analogRead(sensorPin);
+  int currentStatus = (sensorValue > 550) ? HIGH : LOW;
 
-  // detecteer stijgende flank
-  if (huidigeStatus && !vorigeStatus) {
+  if (currentStatus == HIGH && vorigeSensorStatus == LOW) {
     unsigned long nu = micros();
-    pulsInterval = nu - laatstePulsTijd;
+
+    if (laatstePulsTijd > 0) {
+      pulsIntervalUs = nu - laatstePulsTijd;
+      vorigeGeldigePulsUs = pulsIntervalUs;
+    }
+
     laatstePulsTijd = nu;
   }
 
-  vorigeStatus = huidigeStatus;
+  vorigeSensorStatus = currentStatus;
 }
 
 
 // =====================================================
-// 📈 SNELHEID BEREKENEN
+// SNELHEID
 // =====================================================
+
 void snelheidBerekenen() {
-  if (pulsInterval > 0) {
+  if (laatstePulsTijd > 0 && (micros() - laatstePulsTijd) > PULSE_TIMEOUT_US) {
+    gemetenSnelheid = 0;
+    gefilterdeSnelheid *= 0.9;
+    return;
+  }
 
-    float frequentie = 1000000.0 / pulsInterval;
+  if (vorigeGeldigePulsUs > 0) {
+    float speedRaw = PULS_PER_KMH_FACTOR * (1000000.0 / (float)vorigeGeldigePulsUs);
 
-    // ⚠️ HIER KALIBREREN!
-    // rij bijv. 80 km/u → aanpassen tot het klopt
-    gemetenSnelheid = frequentie * 1.25;
-
-    // filter → maakt het signaal rustiger
-    gefilterdeSnelheid = gefilterdeSnelheid * 0.7 + gemetenSnelheid * 0.3;
-
-    // helling detectie (verschil in snelheid)
-    slopeFactor = gefilterdeSnelheid - vorigeSnelheid;
-    vorigeSnelheid = gefilterdeSnelheid;
+    gemetenSnelheid = speedRaw;
+    gefilterdeSnelheid = (1.0 - SPEED_FILTER_ALPHA) * gefilterdeSnelheid +
+                         SPEED_FILTER_ALPHA * gemetenSnelheid;
   }
 }
 
 
 // =====================================================
-// 🚗 SERVO (PID + HELLING)
+// SERVO AANSTURING
 // =====================================================
+
 void servoAansturing() {
-  static unsigned long vorigeTijd = 0;
+  if (millis() - vorigeServoTijd < SERVO_INTERVAL_MS) return;
+  vorigeServoTijd = millis();
 
-  if (millis() - vorigeTijd >= servoInterval) {
-    vorigeTijd = millis();
+  float fout = (float)pulsDoel - gefilterdeSnelheid;
 
-    float fout = snelheidDoel - gefilterdeSnelheid;
+  // 🔥 SOFT START
+  if (millis() - ccStartTijd < SOFTSTART_MS) {
+    if (fout > 0) {
+      float correctie = fout * 0.5;
+      correctie = constrain(correctie, 0, SERVO_STEP_MAX);
 
-    // ---- I-term (heuvel)
-    foutSom += fout;
-    foutSom = constrain(foutSom, -100, 100);
-
-    // ---- D-term (demping)
-    float foutDelta = fout - vorigeFout;
-
-    // ---- helling voorspelling
-    float hellingCorrectie = -slopeFactor * Ks;
-
-    // ---- totaal
-    float correctie = (Kp * fout) + (Ki * foutSom) + (Kd * foutDelta) + hellingCorrectie;
-
-    if (abs(fout) > hysteresis) {
-      servoHoek += correctie;
+      servoHoek += (int)round(correctie);
       servoHoek = constrain(servoHoek, 0, 179);
       mijnServo.write(servoHoek);
     }
-
-    vorigeFout = fout;
-
-    // 🔧 DEBUG (optioneel aanzetten)
-    /*
-    Serial.print("fout:");
-    Serial.print(fout);
-    Serial.print(" slope:");
-    Serial.print(slopeFactor);
-    Serial.print(" servo:");
-    Serial.println(servoHoek);
-    */
+    return;
   }
+
+  if (abs(fout) <= HYSTERESIS_PULS) return;
+
+  float correctie = fout * 0.6;
+
+  correctie = constrain(correctie, -1.5, SERVO_STEP_MAX);
+
+  servoHoek += (int)round(correctie);
+  servoHoek = constrain(servoHoek, 0, 179);
+
+  mijnServo.write(servoHoek);
 }
 
 
 // =====================================================
-// HANDMATIG BIJSTELLEN
+// HANDMATIG
 // =====================================================
-void handmatigBijstellen() {
-  static unsigned long vorigePlus = 0;
-  static unsigned long vorigeMin = 0;
 
-  if (plusIngedrukt && millis() - vorigePlus > PlusMinTijd) {
-    snelheidDoel += 1;
-    vorigePlus = millis();
+void handmatigBijstellen() {
+  if (plusIngedrukt && (millis() - vorigePlusTijd >= PLUSMIN_HOLD_MS)) {
+    pulsDoel += PLUSMIN_STEP_PULSES;
+    pulsDoel = constrain(pulsDoel, 0, 200);
+    vorigePlusTijd = millis();
+    beep(1000, 50);
   }
 
-  if (minIngedrukt && millis() - vorigeMin > PlusMinTijd) {
-    snelheidDoel -= 1;
-    vorigeMin = millis();
+  if (minIngedrukt && (millis() - vorigeMinTijd >= PLUSMIN_HOLD_MS)) {
+    pulsDoel -= PLUSMIN_STEP_PULSES;
+    pulsDoel = constrain(pulsDoel, 0, 200);
+    vorigeMinTijd = millis();
+    beep(1000, 50);
   }
 }
 
@@ -228,11 +274,34 @@ void handmatigBijstellen() {
 // =====================================================
 // REM
 // =====================================================
+
 void remFunctie() {
   if (digitalRead(remSchakelaar) == HIGH) {
-    mijnServo.write(10);
+    mijnServo.write(SERVO_SAFE);
+    pulsDoel = 0;
     ccActief = false;
     beep(2000, 200);
+    Serial.println(F("CC gedeactiveerd"));
+  }
+}
+
+
+// =====================================================
+// LED
+// =====================================================
+
+void fadeLed(int fadeInterval) {
+  static int helderheid = 0;
+  static int richting = 1;
+  static unsigned long vorige = 0;
+
+  if (millis() - vorige >= (unsigned long)fadeInterval) {
+    vorige = millis();
+
+    helderheid += richting;
+    if (helderheid <= 0 || helderheid >= 255) richting = -richting;
+
+    analogWrite(ledPin, helderheid);
   }
 }
 
@@ -240,18 +309,18 @@ void remFunctie() {
 // =====================================================
 // BUZZER
 // =====================================================
-void beep(int freq, int dur) {
+
+void beep(int frequency, int duration) {
   if (isBeeping) return;
-  tone(buzzerPin, freq);
+  tone(buzzerPin, frequency);
   beepStartTime = millis();
-  beepDuration = dur;
+  beepDuration = duration;
   isBeeping = true;
 }
 
 void handleBeep() {
-  if (isBeeping && millis() - beepStartTime >= beepDuration) {
+  if (isBeeping && (millis() - beepStartTime >= beepDuration)) {
     noTone(buzzerPin);
     isBeeping = false;
   }
 }
-```

@@ -4,23 +4,27 @@
 // CRUISE CONTROL - TUNING
 // =====================================================
 
-const float PULS_PER_KMH_FACTOR = 1.0;
-const float SPEED_FILTER_ALPHA = 0.25;
+const float PULS_PER_KMH_FACTOR = 1.0; 
+const float SPEED_FILTER_ALPHA = 0.25; 
+// 🔧 hoger = sneller reageren, lager = rustiger
 
-const int HYSTERESIS_PULS = 2;
-const unsigned long SERVO_INTERVAL_MS = 200; /// zo vaak gaat de servo corrigeren
+const int HYSTERESIS_PULS = 2; 
+// 🔧 dode zone → voorkomt constant bijregelen
 
-const float SERVO_STEP_MAX = 2.0; //verdraaiing van de servo per keer
+const unsigned long SERVO_INTERVAL_MS = 200; 
+// 🔧 hoe vaak servo bijstuurt
 
-const int PLUSMIN_STEP_PULSES = 1;
+const float SERVO_STEP_MAX = 2.0; 
+// 🔧 max stap per correctie
+
+const int PLUSMIN_STEP_PULSES = 2;
 const unsigned long PLUSMIN_HOLD_MS = 400;
 
 const unsigned long PULSE_TIMEOUT_US = 500000;
-const unsigned long DEBUG_INTERVAL_MS = 2000;
+const unsigned long DEBUG_INTERVAL_MS = 1000;
 
 const int SERVO_SAFE = 10;
 
-// 🔥 soft-start
 const unsigned long SOFTSTART_MS = 1500;
 
 
@@ -73,11 +77,11 @@ unsigned long ccStartTijd = 0;
 
 
 // =====================================================
-// 🔧 START SERVO BEREKENING (FEEDFORWARD)
+// FEEDFORWARD STARTPOSITIE
 // =====================================================
 
 int berekenStartServo(float snelheid) {
-  int servo = (int)(snelheid * 1.0 + 60.0); // 80→140, 90→150
+  int servo = (int)(snelheid * 1.0 + 60.0);
   return constrain(servo, 0, 179);
 }
 
@@ -114,9 +118,7 @@ void loop() {
   pulsDetectie();
   snelheidBerekenen();
 
-  // ---------------------------------------------------
-  // CC ACTIVEREN
-  // ---------------------------------------------------
+  // ---------- CC ACTIVEREN ----------
   if (plusIngedrukt) {
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
@@ -125,7 +127,6 @@ void loop() {
 
       pulsDoel = (int)round(gefilterdeSnelheid + 1);
 
-      // 🔥 FEEDFORWARD STARTPOSITIE
       servoHoek = berekenStartServo(gefilterdeSnelheid);
       mijnServo.write(servoHoek);
 
@@ -139,9 +140,7 @@ void loop() {
     ingedruktSinds = 0;
   }
 
-  // ---------------------------------------------------
-  // ACTIEVE CRUISE CONTROL
-  // ---------------------------------------------------
+  // ---------- ACTIEVE CC ----------
   if (ccActief) {
     remFunctie();
     fadeLed(2);
@@ -149,9 +148,7 @@ void loop() {
     handmatigBijstellen();
   }
 
-  // ---------------------------------------------------
-  // DEBUG
-  // ---------------------------------------------------
+  // ---------- DEBUG ----------
   if (millis() - vorigeDebugTijd >= DEBUG_INTERVAL_MS) {
     vorigeDebugTijd = millis();
 
@@ -215,7 +212,7 @@ void snelheidBerekenen() {
 
 
 // =====================================================
-// SERVO AANSTURING
+// SERVO AANSTURING (ASymmetrisch)
 // =====================================================
 
 void servoAansturing() {
@@ -224,7 +221,7 @@ void servoAansturing() {
 
   float fout = (float)pulsDoel - gefilterdeSnelheid;
 
-  // 🔥 SOFT START
+  // 🔥 SOFT START → alleen gas geven
   if (millis() - ccStartTijd < SOFTSTART_MS) {
     if (fout > 0) {
       float correctie = fout * 0.5;
@@ -239,9 +236,18 @@ void servoAansturing() {
 
   if (abs(fout) <= HYSTERESIS_PULS) return;
 
-  float correctie = fout * 0.6;
+  float correctie;
 
-  correctie = constrain(correctie, -1.5, SERVO_STEP_MAX);
+  if (fout > 0) {
+    // 🔼 GAS GEVEN → sneller reageren
+    correctie = fout * 0.6;
+  } else {
+    // 🔽 GAS LOS → rustiger (voorkomt dip!)
+    correctie = fout * 0.25;
+  }
+
+  // 🔧 asymmetrische begrenzing
+  correctie = constrain(correctie, -0.7, SERVO_STEP_MAX);
 
   servoHoek += (int)round(correctie);
   servoHoek = constrain(servoHoek, 0, 179);

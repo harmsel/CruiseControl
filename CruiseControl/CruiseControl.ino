@@ -4,17 +4,17 @@
 // CRUISE CONTROL - TUNING
 // =====================================================
 
-const float PULS_PER_KMH_FACTOR = 1.0; 
-const float SPEED_FILTER_ALPHA = 0.25; 
+const float PULS_PER_KMH_FACTOR = 1.0;
+const float SPEED_FILTER_ALPHA = 0.25;
 // 🔧 hoger = sneller reageren, lager = rustiger
 
-const int HYSTERESIS_PULS = 2; 
+const int HYSTERESIS_PULS = 2;
 // 🔧 dode zone → voorkomt constant bijregelen
 
-const unsigned long SERVO_INTERVAL_MS = 200; 
+const unsigned long SERVO_INTERVAL_MS = 200;
 // 🔧 hoe vaak servo bijstuurt
 
-const float SERVO_STEP_MAX = 1.5; 
+const float SERVO_STEP_MAX = 1.5;
 // was 2.0 🔧 max stap per correctie
 
 const int PLUSMIN_STEP_PULSES = 2;
@@ -122,8 +122,7 @@ void loop() {
   if (plusIngedrukt) {
     if (ingedruktSinds == 0) {
       ingedruktSinds = millis();
-    } 
-    else if ((millis() - ingedruktSinds >= 1000) && !ccActief && gefilterdeSnelheid > 30) {
+    } else if ((millis() - ingedruktSinds >= 1000) && !ccActief && gefilterdeSnelheid > 30) {
 
       pulsDoel = (int)round(gefilterdeSnelheid + 1);
 
@@ -143,6 +142,7 @@ void loop() {
   // ---------- ACTIEVE CC ----------
   if (ccActief) {
     remFunctie();
+    if (!ccActief) return;  // zo gaat hij niet nog een servoAansturing doet na uitzetten via koppeling/rem
     fadeLed(2);
     servoAansturing();
     handmatigBijstellen();
@@ -205,8 +205,7 @@ void snelheidBerekenen() {
     float speedRaw = PULS_PER_KMH_FACTOR * (1000000.0 / (float)vorigeGeldigePulsUs);
 
     gemetenSnelheid = speedRaw;
-    gefilterdeSnelheid = (1.0 - SPEED_FILTER_ALPHA) * gefilterdeSnelheid +
-                         SPEED_FILTER_ALPHA * gemetenSnelheid;
+    gefilterdeSnelheid = (1.0 - SPEED_FILTER_ALPHA) * gefilterdeSnelheid + SPEED_FILTER_ALPHA * gemetenSnelheid;
   }
 }
 
@@ -243,7 +242,7 @@ void servoAansturing() {
     correctie = fout * 0.5;
   } else {
     // 🔽 GAS LOS → rustiger (voorkomt dip!)
-    correctie = fout * 0.3; 
+    correctie = fout * 0.3;
   }
 
   // 🔧 asymmetrische begrenzing

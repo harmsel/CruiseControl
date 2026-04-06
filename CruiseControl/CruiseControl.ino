@@ -14,8 +14,8 @@ const int HYSTERESIS_PULS = 2;
 const unsigned long SERVO_INTERVAL_MS = 200; 
 // 🔧 hoe vaak servo bijstuurt
 
-const float SERVO_STEP_MAX = 2.0; 
-// 🔧 max stap per correctie
+const float SERVO_STEP_MAX = 1.5; 
+// was 2.0 🔧 max stap per correctie
 
 const int PLUSMIN_STEP_PULSES = 2;
 const unsigned long PLUSMIN_HOLD_MS = 400;
@@ -240,10 +240,10 @@ void servoAansturing() {
 
   if (fout > 0) {
     // 🔼 GAS GEVEN → sneller reageren
-    correctie = fout * 0.6;
+    correctie = fout * 0.5;
   } else {
     // 🔽 GAS LOS → rustiger (voorkomt dip!)
-    correctie = fout * 0.25;
+    correctie = fout * 0.3; 
   }
 
   // 🔧 asymmetrische begrenzing
